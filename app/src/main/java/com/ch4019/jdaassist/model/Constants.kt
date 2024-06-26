@@ -2,11 +2,11 @@ package com.ch4019.jdaassist.model
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.floatPreferencesKey
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = DataStoreCont.DATA_STORE_NAME)
 
@@ -16,6 +16,8 @@ object DataStoreCont {
     val PASS_WORD = stringPreferencesKey("passWord")
     val IS_LOGIN = booleanPreferencesKey("isLogin")
     val COOKIES = stringPreferencesKey("cookies")
+    val IS_AUTO_LOGIN = booleanPreferencesKey("isAutoLogin")
+    val lastOpenData = stringPreferencesKey("lastOpenData")
 }
 
 enum class MaskAnimModel {

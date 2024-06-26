@@ -145,7 +145,7 @@ class MainActivity : ComponentActivity() {
                                 ContentUiPage(navController, loginViewModel)
                             }
                             composable(AppRoute.ABOUT) {
-                                AboutPage(navController)
+                                AboutPage(navController, loginViewModel)
                             }
                         }
                     }

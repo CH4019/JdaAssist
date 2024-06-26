@@ -1,5 +1,6 @@
 package com.ch4019.jdaassist.ui.screen.login
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,8 +12,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -28,15 +31,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavHostController
 import com.ch4019.jdaassist.config.AppRoute
 import com.ch4019.jdaassist.ui.components.CardButton
 import com.ch4019.jdaassist.viewmodel.LoginState
 import com.ch4019.jdaassist.viewmodel.LoginViewModel
+import kotlinx.coroutines.Dispatchers
 
 import kotlinx.coroutines.launch
 
@@ -47,9 +53,13 @@ fun LoginPage(
 ) {
     var userName by remember { mutableStateOf("") }
     var passWord by remember { mutableStateOf("") }
+    var autoUserName by remember { mutableStateOf("") }
+    var autoPassWord by remember { mutableStateOf("") }
     var isShow by remember{ mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val loginState by loginViewModel.loginState.collectAsState()
+    autoUserName = loginState.userName
+    autoPassWord = loginState.passWord
     LaunchedEffect(loginState.isLogin) {
         if (loginState.isLogin) {
             navController.navigate(AppRoute.HOME){
@@ -59,6 +69,43 @@ fun LoginPage(
                 }
                 launchSingleTop = true
                 restoreState = true
+            }
+        }
+    }
+    if (loginState.isAutoLogin && !loginState.isLastOpenData) {
+        LaunchedEffect(Dispatchers.IO) {
+            loginViewModel.getLoginState(
+                LoginState(
+                    autoUserName,
+                    autoPassWord,
+                )
+            )
+        }
+        Dialog(
+            onDismissRequest = {}
+        ) {
+            Card(
+                shape = RoundedCornerShape(25.dp),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        "正在自动登录",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        strokeCap = StrokeCap.Round
+                    )
+                    Spacer(Modifier.height(16.dp))
+                }
             }
         }
     }

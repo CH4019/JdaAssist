@@ -19,6 +19,10 @@ class LoginRepository @Inject constructor(
     suspend fun setPassWord(newValue: String) = setValue(DataStoreCont.PASS_WORD, newValue)
     suspend fun getCookies() = getValue(DataStoreCont.COOKIES) ?: ""
     suspend fun setCookies(newValue: String) = setValue(DataStoreCont.COOKIES, newValue)
+    suspend fun getIsAutoLogin() = getValue(DataStoreCont.IS_AUTO_LOGIN) ?: false
+    suspend fun setIsAutoLogin(newValue: Boolean) = setValue(DataStoreCont.IS_AUTO_LOGIN, newValue)
+    suspend fun getLastOpenData() = getValue(DataStoreCont.lastOpenData) ?: ""
+    suspend fun setLastOpenData(newValue: String) = setValue(DataStoreCont.lastOpenData, newValue)
 
     private suspend fun <T : Any> getValue(key: Preferences.Key<T>): T? {
         return dataStore.data.map { it[key] }.first()

@@ -15,6 +15,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import org.jsoup.Connection
 import org.jsoup.Jsoup
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 @HiltViewModel
@@ -33,16 +35,32 @@ class LoginViewModel @Inject constructor(private val loginRepository: LoginRepos
             val passWord = loginRepository.getPassWord().ifBlank { "" }
             val cookieString = loginRepository.getCookies().ifBlank { "JSESSIONID:000000000" }
             val cookies = parseCookieString(cookieString)
+            val isAutoLogin = loginRepository.getIsAutoLogin()
+            val openData = getData()
+            val isLastOpenData = if (openData != loginRepository.getLastOpenData()) {
+                loginRepository.setLastOpenData(openData)
+                false
+            } else {
+                true
+            }
             _loginState.update {
                 it.copy(
                     userName = userName,
                     passWord = passWord,
                     csrfToken = "",
                     cookies = cookies,
-                    isLogin = isLogin
+                    isLogin = if (isAutoLogin && !isLastOpenData) false else isLogin,
+                    isAutoLogin = isAutoLogin,
+                    isLastOpenData = isLastOpenData
                 )
             }
         }
+    }
+
+    private fun getData(): String {
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        val currentDate: String = LocalDate.now().format(formatter)
+        return currentDate
     }
 
     private fun parseCookieString(cookieString: String): MutableMap<String, String> {
@@ -59,6 +77,14 @@ class LoginViewModel @Inject constructor(private val loginRepository: LoginRepos
     suspend fun getLoginState(
         loginIntent: LoginState
     ) {
+        _loginState.update {
+            it.copy(
+                userName = loginIntent.userName,
+                passWord = loginIntent.passWord
+            )
+        }
+        loginRepository.setUserName(loginIntent.userName)
+        loginRepository.setPassWord(loginIntent.passWord)
         withContext(Dispatchers.IO) {
             getCsrfToken()
             val passWord = getPassWord(loginIntent.passWord)
@@ -257,8 +283,6 @@ class LoginViewModel @Inject constructor(private val loginRepository: LoginRepos
                     val newCookies = mutableMapOf<String, String>()
                     newCookies["JSESSIONID"] = jsEsSionId ?: ""
                     val cookieString = "JSESSIONID=$jsEsSionId"
-                    loginRepository.setUserName(yhm)
-                    loginRepository.setPassWord(passWord)
                     loginRepository.setCookies(cookieString)
                     loginRepository.setIsLogin(true)
                     _loginState.update {
@@ -268,6 +292,11 @@ class LoginViewModel @Inject constructor(private val loginRepository: LoginRepos
                         )
                     }
                 } else {
+                    _loginState.update {
+                        it.copy(
+                            isLogin = false
+                        )
+                    }
                     println("登录失败")
                 }
             } catch (e: Exception) {
@@ -320,6 +349,17 @@ class LoginViewModel @Inject constructor(private val loginRepository: LoginRepos
                 }
             }
             Result.failure(Exception("Failed to retrieve data after $maxRetries retries"))
+        }
+    }
+
+    suspend fun setIsAutoLogin(isAutoLogin: Boolean) {
+        withContext(Dispatchers.IO) {
+            loginRepository.setIsAutoLogin(isAutoLogin)
+            _loginState.update {
+                it.copy(
+                    isLogin = isAutoLogin
+                )
+            }
         }
     }
 
