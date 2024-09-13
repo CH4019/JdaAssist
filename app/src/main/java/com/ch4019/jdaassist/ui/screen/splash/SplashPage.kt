@@ -23,17 +23,17 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.ch4019.jdaassist.R
 import com.ch4019.jdaassist.config.AppRoute
-import com.ch4019.jdaassist.viewmodel.LoginViewModel
+import com.ch4019.jdaassist.viewmodel.AppViewModel
 import kotlinx.coroutines.delay
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun SplashPage(
     navController: NavHostController,
-    loginViewModel: LoginViewModel
+    appViewModel: AppViewModel
 ) {
     val logo = ImageBitmap.imageResource(R.drawable.logo)
-    val loginState by loginViewModel.loginState.collectAsState()
+    val loginState by appViewModel.loginState.collectAsState()
     LaunchedEffect(Unit) {
         delay(500)
         if (loginState.isLogin) {

@@ -1,5 +1,6 @@
 package com.ch4019.jdaassist.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ch4019.jdaassist.util.B64
@@ -20,9 +21,13 @@ import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 @HiltViewModel
-class LoginViewModel @Inject constructor(private val loginRepository: LoginRepository): ViewModel() {
+class AppViewModel @Inject constructor(private val appRepository: AppRepository) : ViewModel() {
     private val _loginState = MutableStateFlow(LoginState())
+    private val _courseState = MutableStateFlow(CourseState())
+    private val _isAgreePrivacy = MutableStateFlow(AppState())
     val loginState = _loginState.asStateFlow()
+    val courseState = _courseState.asStateFlow()
+    val isAgreePrivacy = _isAgreePrivacy.asStateFlow()
 
     init{
         initLoginState()
@@ -30,19 +35,34 @@ class LoginViewModel @Inject constructor(private val loginRepository: LoginRepos
 
     private fun initLoginState() {
         viewModelScope.launch(Dispatchers.IO) {
-            val userName = loginRepository.getUserName().ifBlank { "" }
-            val isLogin = loginRepository.getIsLogin()
-            val passWord = loginRepository.getPassWord().ifBlank { "" }
-            val cookieString = loginRepository.getCookies().ifBlank { "JSESSIONID:000000000" }
+
+            val isAgreePrivacy = appRepository.getIsAgreePrivacy()
+            _isAgreePrivacy.update {
+                it.copy(
+                    isAgreePrivacy = isAgreePrivacy
+                )
+            }
+
+            val userName = appRepository.getUserName().ifBlank { "" }
+            val isLogin = appRepository.getIsLogin()
+            val passWord = appRepository.getPassWord().ifBlank { "" }
+            val cookieString = appRepository.getCookies().ifBlank { "JSESSIONID:000000000" }
             val cookies = parseCookieString(cookieString)
-            val isAutoLogin = loginRepository.getIsAutoLogin()
+            val isAutoLogin = appRepository.getIsAutoLogin()
             val openData = getData()
-            val isLastOpenData = if (openData != loginRepository.getLastOpenData()) {
-                loginRepository.setLastOpenData(openData)
+            val isLastOpenData = if (openData != appRepository.getLastOpenData()) {
+                appRepository.setLastOpenData(openData)
                 false
             } else {
                 true
             }
+
+            val courseData = appRepository.getCourseData().ifBlank { "{}" }
+            val courseStartDate = appRepository.getCourseStartDate().ifBlank { "2024/07/01" }
+            val json = Json { ignoreUnknownKeys = true }
+            val coursesData = json.decodeFromString<CourseJsonList>(courseData)
+            Log.d("data", courseData)
+            Log.d("data2", coursesData.kbList.toString())
             _loginState.update {
                 it.copy(
                     userName = userName,
@@ -54,6 +74,25 @@ class LoginViewModel @Inject constructor(private val loginRepository: LoginRepos
                     isLastOpenData = isLastOpenData
                 )
             }
+            _courseState.update {
+                it.copy(
+                    startDate = courseStartDate,
+                    courseData = coursesData.kbList
+                )
+            }
+        }
+    }
+
+    fun makeAgreePrivacy(
+        isAgree: Boolean
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _isAgreePrivacy.update {
+                it.copy(
+                    isAgreePrivacy = isAgree
+                )
+            }
+            appRepository.setIsAgreePrivacy(isAgree)
         }
     }
 
@@ -83,8 +122,8 @@ class LoginViewModel @Inject constructor(private val loginRepository: LoginRepos
                 passWord = loginIntent.passWord
             )
         }
-        loginRepository.setUserName(loginIntent.userName)
-        loginRepository.setPassWord(loginIntent.passWord)
+        appRepository.setUserName(loginIntent.userName)
+        appRepository.setPassWord(loginIntent.passWord)
         withContext(Dispatchers.IO) {
             getCsrfToken()
             val passWord = getPassWord(loginIntent.passWord)
@@ -283,8 +322,8 @@ class LoginViewModel @Inject constructor(private val loginRepository: LoginRepos
                     val newCookies = mutableMapOf<String, String>()
                     newCookies["JSESSIONID"] = jsEsSionId ?: ""
                     val cookieString = "JSESSIONID=$jsEsSionId"
-                    loginRepository.setCookies(cookieString)
-                    loginRepository.setIsLogin(true)
+                    appRepository.setCookies(cookieString)
+                    appRepository.setIsLogin(true)
                     _loginState.update {
                         it.copy(
                             cookies = newCookies,
@@ -308,7 +347,7 @@ class LoginViewModel @Inject constructor(private val loginRepository: LoginRepos
 
     fun logout(){
         viewModelScope.launch(Dispatchers.IO) {
-            loginRepository.setIsLogin(false)
+            appRepository.setIsLogin(false)
             _loginState.update { it.copy(isLogin = false) }
         }
     }
@@ -352,9 +391,92 @@ class LoginViewModel @Inject constructor(private val loginRepository: LoginRepos
         }
     }
 
+    suspend fun setCourseInfo(
+        startDate: String,
+        endDate: String,
+        isSummerTime: Boolean,
+        year: String,
+        semester: String
+    ) {
+        _courseState.update {
+            it.copy(
+                startDate = startDate,
+                endDate = endDate,
+                isSummerTime = isSummerTime
+            )
+        }
+        getCourseList(year, semester)
+    }
+
+    suspend fun getCourseData(
+        scheduleSelected: Int,
+        year: String,
+        semester: String,
+        startDate: String,
+    ) {
+        val isSummerTime = when (scheduleSelected) {
+            0 -> true
+            else -> false
+        }
+        val result = getCourseList(year, semester)
+        result.onSuccess { course ->
+            appRepository.setCourseData(course.second)
+            appRepository.setCourseStartDate(startDate)
+            Log.d("json2", course.second)
+            _courseState.update {
+                it.copy(
+                    startDate = startDate,
+                    isSummerTime = isSummerTime,
+                    courseData = course.first.kbList
+                )
+            }
+        }
+    }
+
+
+    private suspend fun getCourseList(
+        year: String,
+        semester: String
+    ): Result<Pair<CourseJsonList, String>> {
+        return withContext(Dispatchers.IO) {
+            val term = when (semester) {
+                "1" -> "3"
+                "2" -> "12"
+                else -> "16"
+            }
+
+            val connection =
+                Jsoup.connect("https://219-231-0-156.webvpn.ahjzu.edu.cn/kbcx/xskbcx_cxXsKb.html?gnmkdm=N253508")
+                    .header("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
+                    .header(
+                        "User-Agent",
+                        "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36 Edg/115.0.1901.203"
+                    )
+                    .data("xnm", year)
+                    .data("xqm", term)
+                    .cookies(loginState.value.cookies)
+                    .ignoreContentType(true)
+                    .followRedirects(false)  // 禁用自动重定向
+                    .method(Connection.Method.POST)
+            try {
+                val response = connection.execute()
+                val responseBody = response.body()
+                if (responseBody.isNotBlank()) {
+                    val json = Json { ignoreUnknownKeys = true }
+                    val data = json.decodeFromString<CourseJsonList>(responseBody)
+                    val result = Pair<CourseJsonList, String>(data, responseBody)
+                    return@withContext Result.success(result)
+                }
+            } catch (e: Exception) {
+                return@withContext Result.failure(e)
+            }
+            return@withContext Result.failure(Exception("Failed to retrieve data after  retries"))
+        }
+    }
+
     suspend fun setIsAutoLogin(isAutoLogin: Boolean) {
         withContext(Dispatchers.IO) {
-            loginRepository.setIsAutoLogin(isAutoLogin)
+            appRepository.setIsAutoLogin(isAutoLogin)
             _loginState.update {
                 it.copy(
                     isLogin = isAutoLogin

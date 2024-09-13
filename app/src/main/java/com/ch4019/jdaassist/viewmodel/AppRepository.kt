@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
-class LoginRepository @Inject constructor(
+class AppRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>
 ) {
     suspend fun getIsLogin() = getValue(DataStoreCont.IS_LOGIN) ?: false
@@ -23,6 +23,15 @@ class LoginRepository @Inject constructor(
     suspend fun setIsAutoLogin(newValue: Boolean) = setValue(DataStoreCont.IS_AUTO_LOGIN, newValue)
     suspend fun getLastOpenData() = getValue(DataStoreCont.lastOpenData) ?: ""
     suspend fun setLastOpenData(newValue: String) = setValue(DataStoreCont.lastOpenData, newValue)
+    suspend fun getCourseData() = getValue(DataStoreCont.COURSE_DATA) ?: ""
+    suspend fun setCourseData(newValue: String) = setValue(DataStoreCont.COURSE_DATA, newValue)
+    suspend fun getCourseStartDate() = getValue(DataStoreCont.COURSE_START_DATE) ?: ""
+    suspend fun setCourseStartDate(newValue: String) =
+        setValue(DataStoreCont.COURSE_START_DATE, newValue)
+
+    suspend fun getIsAgreePrivacy() = getValue(DataStoreCont.IS_AGREE_PRIVACY) ?: false
+    suspend fun setIsAgreePrivacy(newValue: Boolean) =
+        setValue(DataStoreCont.IS_AGREE_PRIVACY, newValue)
 
     private suspend fun <T : Any> getValue(key: Preferences.Key<T>): T? {
         return dataStore.data.map { it[key] }.first()

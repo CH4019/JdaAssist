@@ -18,6 +18,9 @@ object DataStoreCont {
     val COOKIES = stringPreferencesKey("cookies")
     val IS_AUTO_LOGIN = booleanPreferencesKey("isAutoLogin")
     val lastOpenData = stringPreferencesKey("lastOpenData")
+    val COURSE_DATA = stringPreferencesKey("courseData")
+    val COURSE_START_DATE = stringPreferencesKey("courseStartDate")
+    val IS_AGREE_PRIVACY = booleanPreferencesKey("isAgreePrivacy")
 }
 
 enum class MaskAnimModel {
@@ -29,3 +32,6 @@ val IS_DARK_MODEL = booleanPreferencesKey("is_dark_model")
 val DARK_SWITCH_ACTIVE = booleanPreferencesKey("dark_switch_active")
 val MASK_CLICK_X = floatPreferencesKey("mask_click_x")
 val MASK_CLICK_Y = floatPreferencesKey("mask_click_y")
+
+
+val WELCOME_STATUS = booleanPreferencesKey("key_welcome_status")

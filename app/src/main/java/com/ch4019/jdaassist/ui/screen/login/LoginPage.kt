@@ -40,16 +40,15 @@ import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavHostController
 import com.ch4019.jdaassist.config.AppRoute
 import com.ch4019.jdaassist.ui.components.CardButton
+import com.ch4019.jdaassist.viewmodel.AppViewModel
 import com.ch4019.jdaassist.viewmodel.LoginState
-import com.ch4019.jdaassist.viewmodel.LoginViewModel
 import kotlinx.coroutines.Dispatchers
-
 import kotlinx.coroutines.launch
 
 @Composable
 fun LoginPage(
     navController: NavHostController,
-    loginViewModel: LoginViewModel,
+    appViewModel: AppViewModel,
 ) {
     var userName by remember { mutableStateOf("") }
     var passWord by remember { mutableStateOf("") }
@@ -57,7 +56,7 @@ fun LoginPage(
     var autoPassWord by remember { mutableStateOf("") }
     var isShow by remember{ mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val loginState by loginViewModel.loginState.collectAsState()
+    val loginState by appViewModel.loginState.collectAsState()
     autoUserName = loginState.userName
     autoPassWord = loginState.passWord
     LaunchedEffect(loginState.isLogin) {
@@ -74,7 +73,7 @@ fun LoginPage(
     }
     if (loginState.isAutoLogin && !loginState.isLastOpenData) {
         LaunchedEffect(Dispatchers.IO) {
-            loginViewModel.getLoginState(
+            appViewModel.getLoginState(
                 LoginState(
                     autoUserName,
                     autoPassWord,
@@ -171,7 +170,7 @@ fun LoginPage(
                     .padding(top = 16.dp),
                 onClick = {
                     scope.launch {
-                        loginViewModel.getLoginState(
+                        appViewModel.getLoginState(
                             LoginState(
                                 userName,
                                 passWord,

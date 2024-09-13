@@ -15,15 +15,26 @@ android {
         applicationId = "com.ch4019.jdaassist"
         minSdk = 29
         targetSdk = 34
-        versionCode = 7
-        versionName = "1.0.2"
+        versionCode = 10
+        versionName = "1.0.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
+        ndk {
+            //noinspection ChromeOsAbiSupport
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")    //只保留 arm 架构
+        }
     }
-
+    packaging {
+        resources {
+            excludes += "META-INF/*.readme"
+            excludes += "/META-INF/README.md"
+            // ... 其他要排除的资源文件
+        }
+        // ... 其他排除规则
+    }
     signingConfigs {
         create("releaseConfig") {
             enableV3Signing = true
@@ -102,4 +113,5 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     implementation(libs.datastore.preferences)
     implementation(libs.datastore.preferences.core)
+    implementation(libs.konfetti.compose)
 }

@@ -49,14 +49,14 @@ import androidx.core.content.pm.PackageInfoCompat.getLongVersionCode
 import androidx.navigation.NavHostController
 import com.ch4019.jdaassist.R
 import com.ch4019.jdaassist.util.getPackageInfoCompat
-import com.ch4019.jdaassist.viewmodel.LoginViewModel
+import com.ch4019.jdaassist.viewmodel.AppViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutPage(
     navController: NavHostController,
-    loginViewModel: LoginViewModel
+    appViewModel: AppViewModel
 ) {
     Scaffold(
         topBar = {
@@ -81,7 +81,7 @@ fun AboutPage(
         AboutView(
             modifier = Modifier
                 .padding(paddingValues),
-            loginViewModel
+            appViewModel
         )
     }
 }
@@ -89,7 +89,7 @@ fun AboutPage(
 @Composable
 fun AboutView(
     modifier: Modifier,
-    loginViewModel: LoginViewModel
+    appViewModel: AppViewModel
 ) {
     val context = LocalContext.current
     val packageInfo = context.packageManager.getPackageInfoCompat(context.packageName, 0)
@@ -97,7 +97,7 @@ fun AboutView(
     val versionCode = getLongVersionCode(packageInfo)
     val scope = rememberCoroutineScope()
     var isAutoLogin by remember { mutableStateOf(false) }
-    val loginState by loginViewModel.loginState.collectAsState()
+    val loginState by appViewModel.loginState.collectAsState()
     SideEffect { isAutoLogin = loginState.isAutoLogin }
     Column(
         modifier = modifier
@@ -152,7 +152,7 @@ fun AboutView(
                         onCheckedChange = {
                             scope.launch {
                                 isAutoLogin = it
-                                loginViewModel.setIsAutoLogin(it)
+                                appViewModel.setIsAutoLogin(it)
                             }
                         },
                         thumbContent = {

@@ -32,14 +32,18 @@ import com.ch4019.jdaassist.model.IS_DARK_MODEL
 import com.ch4019.jdaassist.model.MASK_CLICK_X
 import com.ch4019.jdaassist.model.MASK_CLICK_Y
 import com.ch4019.jdaassist.model.MaskAnimModel
+import com.ch4019.jdaassist.model.WELCOME_STATUS
 import com.ch4019.jdaassist.model.dataStore
+import com.ch4019.jdaassist.ui.components.Konfetti
 import com.ch4019.jdaassist.ui.components.MaskBox
+import com.ch4019.jdaassist.ui.components.Welcome
+import com.ch4019.jdaassist.ui.components.rememberKonfettiState
 import com.ch4019.jdaassist.ui.screen.about.AboutPage
 import com.ch4019.jdaassist.ui.screen.login.LoginPage
 import com.ch4019.jdaassist.ui.screen.main.ContentUiPage
 import com.ch4019.jdaassist.ui.screen.splash.SplashPage
 import com.ch4019.jdaassist.ui.theme.JdaAssistTheme
-import com.ch4019.jdaassist.viewmodel.LoginViewModel
+import com.ch4019.jdaassist.viewmodel.AppViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -54,9 +58,16 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val navController = rememberNavController()
-            val loginViewModel : LoginViewModel = viewModel()
+            val appViewModel: AppViewModel = viewModel()
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
+
+            val welcomeStatus by context.dataStore.data
+                .map { preferences ->
+                    preferences[WELCOME_STATUS] ?: false
+                }
+                .collectAsState(initial = false)
+            val konfettiState = rememberKonfettiState(welcomeStatus)
             val isDarkTheme by context.dataStore.data
                 .map { preferences ->
                     preferences[IS_DARK_MODEL] ?: false
@@ -114,7 +125,7 @@ class MainActivity : ComponentActivity() {
                             startDestination = AppRoute.SPLASH,
                         ) {
                             composable(AppRoute.SPLASH) {
-                                SplashPage(navController, loginViewModel)
+                                SplashPage(navController, appViewModel)
                             }
                             composable(
                                 route = AppRoute.LOGIN,
@@ -139,15 +150,20 @@ class MainActivity : ComponentActivity() {
                                     )
                                 },
                             ) {
-                                LoginPage(navController, loginViewModel)
+                                LoginPage(navController, appViewModel)
                             }
                             composable(AppRoute.HOME) {
-                                ContentUiPage(navController, loginViewModel)
+                                ContentUiPage(navController, appViewModel)
                             }
                             composable(AppRoute.ABOUT) {
-                                AboutPage(navController, loginViewModel)
+                                AboutPage(navController, appViewModel)
                             }
                         }
+                        Welcome(
+                            konfettiState,
+                            appViewModel
+                        )
+                        Konfetti(konfettiState)
                     }
                 }
             }

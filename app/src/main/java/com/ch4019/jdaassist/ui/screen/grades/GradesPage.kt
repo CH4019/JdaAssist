@@ -49,26 +49,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.ch4019.jdaassist.ui.components.ChipList
+import com.ch4019.jdaassist.viewmodel.AppViewModel
 import com.ch4019.jdaassist.viewmodel.GradesInfo
 import com.ch4019.jdaassist.viewmodel.GradesList
-import com.ch4019.jdaassist.viewmodel.LoginViewModel
 import kotlinx.coroutines.delay
 import java.time.Year
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GradesPage(
-    loginViewModel: LoginViewModel
+    appViewModel: AppViewModel
 ) {
-    val selected1 = remember{ mutableStateOf(false) }
-    val selected2 = remember{ mutableStateOf(false) }
     var academicYear by remember{ mutableStateOf("2023") }
     var semester by remember{ mutableStateOf("1") }
     var gradesList by remember { mutableStateOf(GradesList()) }
     var isLoading by remember { mutableStateOf(false) }
+    var gradesInfo by remember { mutableStateOf(GradesInfo()) }
+    val selected1 = remember { mutableStateOf(false) }
+    val selected2 = remember { mutableStateOf(false) }
     val isShowClassInfo = remember { mutableStateOf(false) }
     val courseId = remember { mutableStateOf("") }
-    var gradesInfo by remember{ mutableStateOf(GradesInfo()) }
     val isShowDialog = remember { mutableStateOf(false) }
     var isGetGrades by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
@@ -76,7 +76,7 @@ fun GradesPage(
 
     LaunchedEffect(isShowClassInfo.value) {
         if (isShowClassInfo.value) {
-            val result =  loginViewModel.getGradesInfo(academicYear, semester, courseId.value)
+            val result = appViewModel.getGradesInfo(academicYear, semester, courseId.value)
             if (result.isSuccess) {
                 gradesInfo = result.getOrNull()!!
                 isShowDialog.value = true // 只有成功获取信息后才显示弹窗
@@ -90,7 +90,7 @@ fun GradesPage(
     LaunchedEffect(isGetGrades) {
         if (isGetGrades) {
             isLoading = true
-            val result = loginViewModel.getGrades(academicYear, semester)
+            val result = appViewModel.getGrades(academicYear, semester)
             delay(500)
             if (result.isSuccess) {
                 gradesList = result.getOrNull()!!
@@ -101,7 +101,6 @@ fun GradesPage(
             isGetGrades = false
         }
     }
-
 
     Box(
         modifier = Modifier
@@ -384,9 +383,7 @@ fun ShowDemo(
             }
         }
     }
-//    Spacer(modifier = Modifier.height(56.dp))
 }
-
 
 @Composable
 fun FloatButton(
@@ -401,17 +398,19 @@ fun FloatButton(
             .padding(horizontal = 32.dp, vertical = 32.dp),
         contentAlignment = Alignment.BottomEnd
     ) {
-        FloatingActionButton(onClick = {
-            if (selected1&&selected2){
-                content()
-            }else if (selected1){
-                Toast.makeText(context, "请选择学期", Toast.LENGTH_SHORT).show()
-            }else if (selected2){
-                Toast.makeText(context, "请选择学年", Toast.LENGTH_SHORT).show()
-            }else{
-                Toast.makeText(context, "请选择学年和学期", Toast.LENGTH_SHORT).show()
+        FloatingActionButton(
+            onClick = {
+                if (selected1 && selected2) {
+                    content()
+                } else if (selected1) {
+                    Toast.makeText(context, "请选择学期", Toast.LENGTH_SHORT).show()
+                } else if (selected2) {
+                    Toast.makeText(context, "请选择学年", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "请选择学年和学期", Toast.LENGTH_SHORT).show()
+                }
             }
-        }) {
+        ) {
             Icon(imageVector = Icons.Default.Check, contentDescription = null)
         }
     }
