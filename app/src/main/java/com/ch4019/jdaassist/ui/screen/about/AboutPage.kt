@@ -1,5 +1,7 @@
 package com.ch4019.jdaassist.ui.screen.about
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -40,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.imageResource
@@ -92,6 +96,8 @@ fun AboutView(
     appViewModel: AppViewModel
 ) {
     val context = LocalContext.current
+    val url = "https://github.com/CH4019/JdaAssist"
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
     val packageInfo = context.packageManager.getPackageInfoCompat(context.packageName, 0)
     val versionName = packageInfo.versionName
     val versionCode = getLongVersionCode(packageInfo)
@@ -134,6 +140,32 @@ fun AboutView(
                     Text("当前版本")
                     Spacer(Modifier.weight(1f))
                     Text("$versionName($versionCode)")
+                }
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    color = Color.Transparent,
+                    onClick = {
+                        context.startActivity(intent)
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Github主页")
+                        Spacer(Modifier.weight(1f))
+                        Icon(
+                            Icons.Rounded.Link,
+                            contentDescription = null,
+                        )
+                    }
                 }
                 HorizontalDivider(
                     thickness = 1.dp,
