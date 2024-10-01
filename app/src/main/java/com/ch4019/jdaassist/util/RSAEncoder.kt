@@ -26,7 +26,6 @@ object RSAEncoder {
 
 
     private fun pkcs1pad2(s: String, m: Int): BigInteger? {
-        println(m)
         var n = m
         if (n < s.length + 11) { // TODO: fix for utf-8
             System.err.println("Message too long for RSAEncoder")

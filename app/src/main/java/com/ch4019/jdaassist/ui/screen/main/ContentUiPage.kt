@@ -1,13 +1,12 @@
 package com.ch4019.jdaassist.ui.screen.main
 
 import android.annotation.SuppressLint
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,11 +24,11 @@ import androidx.compose.material.icons.rounded.ToggleOff
 import androidx.compose.material.icons.rounded.ToggleOn
 import androidx.compose.material3.BottomSheetDefaults.DragHandle
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -64,6 +63,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.edit
@@ -79,9 +79,11 @@ import com.ch4019.jdaassist.ui.screen.courses.CoursePage
 import com.ch4019.jdaassist.ui.screen.grades.GradesPage
 import com.ch4019.jdaassist.ui.screen.grades.SelectGrades
 import com.ch4019.jdaassist.util.getToDayDate
+import com.ch4019.jdaassist.util.showToast
 import com.ch4019.jdaassist.viewmodel.AppViewModel
 import com.ch4019.jdaassist.viewmodel.CourseJsonList
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -91,7 +93,7 @@ import java.util.Locale
 
 
 @SuppressLint("UnrememberedMutableState")
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContentUiPage(
     navController: NavHostController,
@@ -295,19 +297,6 @@ fun ContentUiPage(
             }
         }
 
-//        if(isOpenDialog.value){
-//            DatePicker(
-//                isOpenDialog = isOpenDialog,
-//            ) {
-//                startDate.value =
-//                    SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(
-//                        Date(
-//                            it
-//                        )
-//                    )
-//                if(it != 0L) isSelectedDate.value = true
-//            }
-//        }
         DatePickerDialog(
             isOpenDialog,
             startDate,
@@ -329,7 +318,7 @@ fun ContentUiPage(
                         modifier = Modifier.padding(top = height),
                     )
                 },
-                windowInsets = WindowInsets(top = 0.dp)
+                contentWindowInsets = { WindowInsets(top = 0.dp) }
             ) {
                 Column(
                     modifier = Modifier
@@ -344,16 +333,29 @@ fun ContentUiPage(
                         onSemesterSelected = { term -> semester = term }
                     )
                     InputChip(
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .padding(top = 8.dp)
+                            .defaultMinSize(
+                                minHeight = 40.dp
+                            ),
                         selected = isSelectedDate.value,
                         onClick = {
                             isOpenDialog.value = true
                         },
-                        label = { Text(startDate.value) }
+                        label = {
+                            Text(
+                                startDate.value,
+                                modifier = Modifier.fillMaxWidth(),
+                                fontSize = 18.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     )
                     SingleChoiceSegmentedButtonRow(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp),
+                            .fillMaxWidth(0.9f)
+                            .padding(top = 8.dp),
                     ) {
                         scheduleState.forEachIndexed { index, schedule ->
                             SegmentedButton(
@@ -381,24 +383,24 @@ fun ContentUiPage(
                             }
                         }
                     ) {
-                        FilledTonalButton(
+                        OutlinedButton(
                             onClick = {
-                                if (selected1.value && selected2.value) {
-                                    scope.launch {
-                                        appViewModel.getCourseData(
-                                            scheduleSelected,
-                                            academicYear,
-                                            semester,
-                                            startDate.value
-                                        )
+                                when {
+                                    selected1.value && selected2.value -> scope.launch {
+                                        val courseResult = async {
+                                            appViewModel.getCourseData(
+                                                scheduleSelected,
+                                                academicYear,
+                                                semester,
+                                                startDate.value
+                                            )
+                                        }
+                                        courseResult.await()
                                     }
-                                } else if (selected1.value) {
-                                    Toast.makeText(context, "请选择学期", Toast.LENGTH_SHORT).show()
-                                } else if (selected2.value) {
-                                    Toast.makeText(context, "请选择学年", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    Toast.makeText(context, "请选择学年和学期", Toast.LENGTH_SHORT)
-                                        .show()
+
+                                    selected1.value -> showToast(context, "请选择学期")
+                                    selected2.value -> showToast(context, "请选择学年")
+                                    else -> showToast(context, "请选择学年和学期")
                                 }
                             }
                         ) {

@@ -2,6 +2,7 @@ package com.ch4019.jdaassist.ui.screen.about
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
@@ -96,8 +97,12 @@ fun AboutView(
     appViewModel: AppViewModel
 ) {
     val context = LocalContext.current
-    val url = "https://github.com/CH4019/JdaAssist"
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+    val urlGithub = "https://github.com/CH4019/JdaAssist"
+    val urlTerms = "https://jdaassistant.ch4019.fun/docs/AppUpdateLog/terms_of_user"
+    val urlPrivacy = "https://jdaassistant.ch4019.fun/docs/AppUpdateLog/privacy"
+    val intentGithub = Intent(Intent.ACTION_VIEW, Uri.parse(urlGithub))
+    val intentTerms = Intent(Intent.ACTION_VIEW, Uri.parse(urlTerms))
+    val intentPrivacy = Intent(Intent.ACTION_VIEW, Uri.parse(urlPrivacy))
     val packageInfo = context.packageManager.getPackageInfoCompat(context.packageName, 0)
     val versionName = packageInfo.versionName
     val versionCode = getLongVersionCode(packageInfo)
@@ -132,14 +137,24 @@ fun AboutView(
                 .fillMaxWidth()
         ) {
             Column {
-                Row(
+                Surface(
                     modifier = Modifier
-                        .padding(16.dp)
                         .fillMaxWidth(),
+                    color = Color.Transparent,
+                    onClick = {
+                        Toast.makeText(context, "应用内更新功能暂未开放", Toast.LENGTH_SHORT).show()
+                    }
                 ) {
-                    Text("当前版本")
-                    Spacer(Modifier.weight(1f))
-                    Text("$versionName($versionCode)")
+                    Row(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("当前版本")
+                        Spacer(Modifier.weight(1f))
+                        Text("$versionName($versionCode)")
+                    }
                 }
                 HorizontalDivider(
                     thickness = 1.dp,
@@ -150,7 +165,7 @@ fun AboutView(
                         .fillMaxWidth(),
                     color = Color.Transparent,
                     onClick = {
-                        context.startActivity(intent)
+                        context.startActivity(intentGithub)
                     }
                 ) {
                     Row(
@@ -203,6 +218,58 @@ fun AboutView(
                             }
                         }
                     )
+                }
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    color = Color.Transparent,
+                    onClick = {
+                        context.startActivity(intentPrivacy)
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("隐私政策")
+                        Spacer(Modifier.weight(1f))
+                        Icon(
+                            Icons.Rounded.Link,
+                            contentDescription = null,
+                        )
+                    }
+                }
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    color = Color.Transparent,
+                    onClick = {
+                        context.startActivity(intentTerms)
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("用户协议")
+                        Spacer(Modifier.weight(1f))
+                        Icon(
+                            Icons.Rounded.Link,
+                            contentDescription = null,
+                        )
+                    }
                 }
             }
         }

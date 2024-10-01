@@ -40,10 +40,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavHostController
 import com.ch4019.jdaassist.config.AppRoute
+import com.ch4019.jdaassist.config.LoginPageUiState
 import com.ch4019.jdaassist.ui.components.CardButton
 import com.ch4019.jdaassist.viewmodel.AppViewModel
 import com.ch4019.jdaassist.viewmodel.LoginState
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
 @Composable
@@ -51,16 +52,19 @@ fun LoginPage(
     navController: NavHostController,
     appViewModel: AppViewModel,
 ) {
-    var userName by remember { mutableStateOf("") }
-    var passWord by remember { mutableStateOf("") }
-    var autoUserName by remember { mutableStateOf("") }
-    var autoPassWord by remember { mutableStateOf("") }
-    var isShow by remember{ mutableStateOf(false) }
+    var uiState by remember {
+        mutableStateOf(LoginPageUiState("", "", false))
+    }
+//    var userName by remember { mutableStateOf("") }
+//    var passWord by remember { mutableStateOf("") }
+//    var autoUserName by remember { mutableStateOf("") }
+//    var autoPassWord by remember { mutableStateOf("") }
+//    var isShow by remember{ mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val loginState by appViewModel.loginState.collectAsState()
-    autoUserName = loginState.userName
-    autoPassWord = loginState.passWord
-    LaunchedEffect(loginState.isLogin) {
+//    autoUserName = loginState.userName
+//    autoPassWord = loginState.passWord
+    LaunchedEffect(key1 = loginState) {
         if (loginState.isLogin) {
             navController.navigate(AppRoute.HOME){
                 popUpTo(AppRoute.LOGIN){
@@ -73,11 +77,11 @@ fun LoginPage(
         }
     }
     if (loginState.isAutoLogin && !loginState.isLastOpenData) {
-        LaunchedEffect(Dispatchers.IO) {
+        LaunchedEffect(key1 = loginState.isAutoLogin && !loginState.isLastOpenData) {
             appViewModel.getLoginState(
                 LoginState(
-                    autoUserName,
-                    autoPassWord,
+                    loginState.userName,
+                    loginState.passWord,
                 )
             )
         }
@@ -130,9 +134,9 @@ fun LoginPage(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 32.dp),
-                value = userName,
+                value = uiState.userName,
                 onValueChange = { newValue ->
-                    userName = newValue
+                    uiState = uiState.copy(userName = newValue)
                 },
                 shape = RoundedCornerShape(15.dp),
                 singleLine = true,
@@ -144,21 +148,23 @@ fun LoginPage(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 32.dp),
-                value = passWord,
+                value = uiState.passWord,
                 onValueChange = { newValue ->
-                    passWord = newValue
+                    uiState = uiState.copy(passWord = newValue)
                 },
                 shape = RoundedCornerShape(15.dp),
                 singleLine = true,
-                visualTransformation = if (isShow) VisualTransformation.None else PasswordVisualTransformation(),
+                visualTransformation = if (uiState.isShowPassword) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions().copy(keyboardType = KeyboardType.Password),
                 label = { Text(text = "密码") },
                 trailingIcon = {
-                    IconButton(onClick = { isShow = !isShow }) {
+                    IconButton(onClick = {
+                        uiState = uiState.copy(isShowPassword = !uiState.isShowPassword)
+                    }) {
                         Icon(
-                            imageVector=if (isShow) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
+                            imageVector = if (uiState.isShowPassword) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
                             contentDescription = null,
-                            tint = if (isShow) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                            tint = if (uiState.isShowPassword) MaterialTheme.colorScheme.primary else LocalContentColor.current
                         )
                     }
                 },
@@ -171,12 +177,15 @@ fun LoginPage(
                     .padding(top = 16.dp),
                 onClick = {
                     scope.launch {
-                        appViewModel.getLoginState(
-                            LoginState(
-                                userName,
-                                passWord,
+                        val loginResult = async {
+                            appViewModel.getLoginState(
+                                LoginState(
+                                    uiState.userName,
+                                    uiState.passWord,
+                                )
                             )
-                        )
+                        }
+                        loginResult.await()
                     }
                 },
                 colors = CardDefaults.cardColors(

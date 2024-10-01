@@ -4,13 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.core.EaseIn
-import androidx.compose.animation.core.EaseOut
-import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -41,7 +41,7 @@ import com.ch4019.jdaassist.ui.components.rememberKonfettiState
 import com.ch4019.jdaassist.ui.screen.about.AboutPage
 import com.ch4019.jdaassist.ui.screen.login.LoginPage
 import com.ch4019.jdaassist.ui.screen.main.ContentUiPage
-import com.ch4019.jdaassist.ui.screen.splash.SplashPage
+import com.ch4019.jdaassist.ui.screen.statusChecks.StatusChecksPage
 import com.ch4019.jdaassist.ui.theme.JdaAssistTheme
 import com.ch4019.jdaassist.viewmodel.AppViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -52,6 +52,10 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Install the splash screen
+        installSplashScreen()
+
         enableEdgeToEdge()
         //设置全屏
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -61,6 +65,7 @@ class MainActivity : ComponentActivity() {
             val appViewModel: AppViewModel = viewModel()
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
+            val privacyData = appViewModel.isAgreePrivacy.collectAsState()
 
             val welcomeStatus by context.dataStore.data
                 .map { preferences ->
@@ -88,6 +93,7 @@ class MainActivity : ComponentActivity() {
                     preferences[MASK_CLICK_Y] ?: 0f
                 }
                 .collectAsState(initial = 0f)
+
             JdaAssistTheme(
                 darkTheme = isDarkTheme
             ) {
@@ -116,52 +122,56 @@ class MainActivity : ComponentActivity() {
                             maskActiveEvent(MaskAnimModel.EXPEND, maskClickX, maskClickY)
                         }
                     }
+
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
                         NavHost(
                             navController = navController,
-                            startDestination = AppRoute.SPLASH,
+                            startDestination = AppRoute.STATUS_CHECKS,
+                            popEnterTransition = {
+                                scaleIn(
+                                    animationSpec = tween(durationMillis = 500, delayMillis = 35),
+                                    initialScale = 1.1f,
+                                ) + fadeIn(
+                                    animationSpec = tween(durationMillis = 500, delayMillis = 35)
+                                )
+                            },
+                            popExitTransition = {
+                                scaleOut(
+                                    targetScale = 0.9f,
+                                ) + fadeOut(
+                                    animationSpec = tween(
+                                        durationMillis = 35,
+                                        easing = CubicBezierEasing(0.1f, 0.1f, 0f, 1f)
+                                    )
+                                )
+                            },
                         ) {
-                            composable(AppRoute.SPLASH) {
-                                SplashPage(navController, appViewModel)
+                            composable(AppRoute.STATUS_CHECKS) {
+                                StatusChecksPage(navController, appViewModel)
                             }
                             composable(
                                 route = AppRoute.LOGIN,
-                                enterTransition = {
-                                    fadeIn(
-                                        animationSpec = tween(
-                                            300, easing = LinearOutSlowInEasing
-                                        )
-                                    ) + slideIntoContainer(
-                                        animationSpec = tween(300, easing = EaseIn),
-                                        towards = AnimatedContentTransitionScope.SlideDirection.End
-                                    )
-                                },
-                                exitTransition = {
-                                    fadeOut(
-                                        animationSpec = tween(
-                                            300, easing = LinearOutSlowInEasing
-                                        )
-                                    ) + slideOutOfContainer(
-                                        animationSpec = tween(300, easing = EaseOut),
-                                        towards = AnimatedContentTransitionScope.SlideDirection.Start
-                                    )
-                                },
                             ) {
                                 LoginPage(navController, appViewModel)
                             }
-                            composable(AppRoute.HOME) {
+                            composable(
+                                route = AppRoute.HOME,
+                            ) {
                                 ContentUiPage(navController, appViewModel)
                             }
-                            composable(AppRoute.ABOUT) {
+                            composable(
+                                route = AppRoute.ABOUT,
+                            ) {
                                 AboutPage(navController, appViewModel)
                             }
                         }
                         Welcome(
                             konfettiState,
-                            appViewModel
+                            appViewModel,
+                            (!privacyData.value.isAgreePrivacy)
                         )
                         Konfetti(konfettiState)
                     }

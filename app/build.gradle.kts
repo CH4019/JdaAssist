@@ -9,14 +9,14 @@ plugins {
 
 android {
     namespace = "com.ch4019.jdaassist"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.ch4019.jdaassist"
         minSdk = 29
-        targetSdk = 34
-        versionCode = 11
-        versionName = "1.0.6"
+        targetSdk = 35
+        versionCode = 15
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -66,6 +66,7 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
+    buildToolsVersion = "35.0.0 rc4"
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -114,4 +115,5 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.datastore.preferences.core)
     implementation(libs.konfetti.compose)
+    implementation(libs.splash.screen)
 }

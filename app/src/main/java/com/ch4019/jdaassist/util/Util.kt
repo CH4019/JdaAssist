@@ -1,8 +1,12 @@
 package com.ch4019.jdaassist.util
 
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import androidx.annotation.FloatRange
 import androidx.core.graphics.ColorUtils
 import com.ch4019.jdaassist.viewmodel.CourseJsonList
@@ -76,4 +80,13 @@ fun isMonday(dateInMillis: Long): Boolean {
         timeInMillis = dateInMillis
     }
     return calendar.get(Calendar.DAY_OF_WEEK) == Calendar.MONDAY
+}
+
+fun openWebPage(context: Context, url: String) {
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+    context.startActivity(intent)
+}
+
+fun showToast(context: Context, message: String) {
+    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 }

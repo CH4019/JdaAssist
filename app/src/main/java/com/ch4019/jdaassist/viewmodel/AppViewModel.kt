@@ -3,6 +3,7 @@ package com.ch4019.jdaassist.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ch4019.jdaassist.model.CourseResult
 import com.ch4019.jdaassist.util.B64
 import com.ch4019.jdaassist.util.RSAEncoder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -102,15 +103,22 @@ class AppViewModel @Inject constructor(private val appRepository: AppRepository)
         return currentDate
     }
 
-    private fun parseCookieString(cookieString: String): MutableMap<String, String> {
-        val cookies = mutableMapOf<String, String>()
-        val keyValue = cookieString.split("=")
-        if (keyValue.size == 2) {
-            val key = keyValue[0].trim()
-            val value = keyValue[1].trim()
-            cookies[key] = value
-        }
-        return cookies
+    private fun parseCookieString(cookieString: String): Map<String, String> {
+//        val cookies = mutableMapOf<String, String>()
+//        val keyValue = cookieString.split("=")
+//        if (keyValue.size == 2) {
+//            val key = keyValue[0].trim()
+//            val value = keyValue[1].trim()
+//            cookies[key] = value
+//        }
+//        return cookies
+        return cookieString.split(";")
+            .map { it.trim() }
+            .mapNotNull {
+                val parts = it.split("=")
+                if (parts.size == 2) parts[0] to parts[1] else null
+            }
+            .associate { it }
     }
 
     suspend fun getLoginState(
@@ -134,54 +142,51 @@ class AppViewModel @Inject constructor(private val appRepository: AppRepository)
     suspend fun getGrades(
         year: String,
         semester: String
-    ): Result<GradesList> {
-        return withContext(Dispatchers.IO) {
-            val term = when (semester) {
-                "1" -> "3"
-                "2" -> "12"
-                else -> "16"
-            }
-            // 定义最大重试次数
-            val maxRetries = 3
-            var currentRetry = 0
-            var getGrades: GradesList?
-            while (currentRetry < maxRetries) {
-                try {
-                    val connection =
-                        Jsoup.connect("${loginState.value.url}/cjcx/cjcx_cxDgXscj.html?doType=query&gnmkdm=N305005")
-                            .header(
-                                "User-Agent",
-                                "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36 Edg/115.0.1901.203"
-                            )
-                            .cookies(loginState.value.cookies)
-                            .ignoreContentType(true)
-                            .data("xnm", year)
-                            .data("xqm", term)
-                            .data("_search", "false")
-                            .data("nd", (getTime() * 1000).toString())
-                            .data("queryModel.showCount", "100")
-                            .data("queryModel.currentPage", "1")
-                            .data("queryModel.sortName", "")
-                            .data("queryModel.sortOrder", "asc")
-                            .data("time", "0")
-                    val response = connection.execute()
-                    if (response.statusCode() == 200){
-                        val responseBody = response.body()
-                        val json = Json { ignoreUnknownKeys = true }
-                        getGrades = json.decodeFromString<GradesList>(responseBody)
-                        return@withContext Result.success(getGrades)
-                    }
-                } catch (e: Exception) {
-                    currentRetry++
-                    if (currentRetry < maxRetries) {
-                        delay(1000L)
-                    } else {
-                        return@withContext Result.failure(e)
-                    }
+    ): Result<GradesList> = withContext(Dispatchers.IO) {
+        val term = when (semester) {
+            "1" -> "3"
+            "2" -> "12"
+            else -> "16"
+        }
+        val maxRetries = 3
+        repeat(maxRetries) { currentRetry -> // 使用 repeat 函数简化循环
+            runCatching {
+                val connection =
+                    Jsoup.connect("${loginState.value.url}/cjcx/cjcx_cxDgXscj.html?doType=query&gnmkdm=N305005")
+                        .header(
+                            "User-Agent",
+                            "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36 Edg/115.0.1901.203"
+                        )
+                        .cookies(loginState.value.cookies)
+                        .ignoreContentType(true)
+                        .data("xnm", year)
+                        .data("xqm", term)
+                        .data("_search", "false")
+                        .data("nd", (getTime() * 1000).toString())
+                        .data("queryModel.showCount", "100")
+                        .data("queryModel.currentPage", "1")
+                        .data("queryModel.sortName", "")
+                        .data("queryModel.sortOrder", "asc")
+                        .data("time", "0")
+                val response = connection.execute()
+                if (response.statusCode() == 200) {
+                    val responseBody = response.body()
+                    val json = Json { ignoreUnknownKeys = true }
+                    json.decodeFromString<GradesList>(responseBody)
+                } else {
+                    throw Exception("HTTP request failed with status code: ${response.statusCode()}") // 更详细的错误信息
+                }
+            }.onSuccess {
+                return@withContext Result.success(it) // 成功获取数据，直接返回
+            }.onFailure {
+                if (currentRetry < maxRetries - 1) { // 还有重试机会
+                    delay(1000L)
+                } else {
+                    return@withContext Result.failure(it) // 重试次数用尽，返回错误
                 }
             }
-            Result.failure(Exception("Failed to retrieve data after $maxRetries retries"))
         }
+        Result.failure(Exception("Failed to retrieve data after $maxRetries retries"))
     }
 
 
@@ -189,85 +194,101 @@ class AppViewModel @Inject constructor(private val appRepository: AppRepository)
         year: String,
         semester: String,
         courseId: String
-    ): Result<GradesInfo> {
-        return withContext(Dispatchers.IO) {
-            val term = when (semester) {
-                "1" -> "3"
-                "2" -> "12"
-                else -> "16"
-            }
-            // 定义最大重试次数
-            val maxRetries = 3
-            var currentRetry = 0
-            var gradesInfo: GradesInfo?
-            while (currentRetry < maxRetries) {
-                try {
-                    val connection =
-                        Jsoup.connect("${loginState.value.url}/cjcx/cjcx_cxXsXmcjList.html?gnmkdm=N305007&su=${loginState.value.userName}")
-                            .header(
-                                "User-Agent",
-                                "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36 Edg/115.0.1901.203"
-                            )
-                            .cookies(loginState.value.cookies)
-                            .ignoreContentType(true)
-                            .data("xnm", year)
-                            .data("xqm", term)
-                            .data("jxb_id", courseId)
-                            .data("_search", "false")
-                            .data("nd", (getTime() * 1000).toString())
-                            .data("queryModel.showCount", "100")
-                            .data("queryModel.currentPage", "1")
-                            .data("queryModel.sortName", "")
-                            .data("queryModel.sortOrder", "asc")
-                            .data("time", "0")
-                    val response = connection.execute()
-                    if (response.statusCode() == 200) {
-                        val responseBody = response.body()
-                        val json = Json { ignoreUnknownKeys = true }
-                        gradesInfo = json.decodeFromString<GradesInfo>(responseBody)
-                        return@withContext Result.success(gradesInfo)
-                    }
-                } catch (e: Exception) {
-                    currentRetry++
-                    if (currentRetry < maxRetries) {
-                        delay(1000L)
-                    } else {
-                        return@withContext Result.failure(e)
-                    }
-                }
-            }
-            Result.failure(Exception("Failed to retrieve data after $maxRetries retries"))
+    ): Result<GradesInfo> = withContext(Dispatchers.IO) {
+        val term = when (semester) {
+            "1" -> "3"
+            "2" -> "12"
+            else -> "16"
         }
-    }
-
-    private suspend fun getCsrfToken() {
-        withContext(Dispatchers.IO) {
-            try {
-                val connection = Jsoup.connect("${loginState.value.url}/xtgl/login_slogin.html")
-                connection.header(
-                    "User-Agent",
-                    "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:29.0) Gecko/20100101 Firefox/29.0"
-                )
+        val maxRetries = 3
+        repeat(maxRetries) { currentRetry -> // 使用 repeat 函数简化循环
+            runCatching {
+                val connection =
+                    Jsoup.connect("${loginState.value.url}/cjcx/cjcx_cxXsXmcjList.html?gnmkdm=N305007&su=${loginState.value.userName}")
+                        .header(
+                            "User-Agent",
+                            "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36 Edg/115.0.1901.203"
+                        )
+                        .cookies(loginState.value.cookies)
+                        .ignoreContentType(true)
+                        .data("xnm", year)
+                        .data("xqm", term)
+                        .data("jxb_id", courseId)
+                        .data("_search", "false")
+                        .data("nd", (getTime() * 1000).toString())
+                        .data("queryModel.showCount", "100")
+                        .data("queryModel.currentPage", "1")
+                        .data("queryModel.sortName", "")
+                        .data("queryModel.sortOrder", "asc")
+                        .data("time", "0")
                 val response = connection.execute()
-                //保存csrfToken和cookies
-                val document = Jsoup.parse(response.body())
-                val csrfToken = document.getElementById("csrftoken")?.`val`() ?: ""
-                _loginState.update {
-                    it.copy(
-                        cookies = response.cookies(),
-                        csrfToken = csrfToken
-                    )
+                if (response.statusCode() == 200) {
+                    val responseBody = response.body()
+                    val json = Json { ignoreUnknownKeys = true }
+                    json.decodeFromString<GradesInfo>(responseBody)
+                } else {
+                    throw Exception("HTTP request failed with status code: ${response.statusCode()}") // 更详细的错误信息
                 }
-            } catch (ex: Exception) {
-                ex.printStackTrace()
+            }.onSuccess {
+                return@withContext Result.success(it) // 成功获取数据，直接返回
+            }.onFailure {
+                if (currentRetry < maxRetries - 1) { // 还有重试机会
+                    delay(1000L)
+                } else {
+                    return@withContext Result.failure(it) // 重试次数用尽，返回错误
+                }
             }
         }
+        Result.failure(Exception("Failed to retrieve data after $maxRetries retries")) // 所有重试都失败
+
     }
 
-    private suspend fun getPassWord(
+    private fun getCsrfToken() {
+        runCatching {
+            val connection = Jsoup.connect("${loginState.value.url}/xtgl/login_slogin.html")
+            connection.header(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:29.0) Gecko/20100101 Firefox/29.0"
+            )
+            val response = connection.execute()
+            val document = Jsoup.parse(response.body())
+            val csrfToken = document.getElementById("csrftoken")?.`val`() ?: ""
+            _loginState.update {
+                it.copy(
+                    cookies = response.cookies(),
+                    csrfToken = csrfToken
+                )
+            }
+        }.onFailure {
+            Log.d("getCsrfToken", it.message.toString())
+        }
+//        withContext(Dispatchers.IO) {
+//            try {
+//                val connection = Jsoup.connect("${loginState.value.url}/xtgl/login_slogin.html")
+//                connection.header(
+//                    "User-Agent",
+//                    "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:29.0) Gecko/20100101 Firefox/29.0"
+//                )
+//                val response = connection.execute()
+//                //保存csrfToken和cookies
+//                val document = Jsoup.parse(response.body())
+//                val csrfToken = document.getElementById("csrftoken")?.`val`() ?: ""
+//                _loginState.update {
+//                    it.copy(
+//                        cookies = response.cookies(),
+//                        csrfToken = csrfToken
+//                    )
+//                }
+//            } catch (ex: Exception) {
+//                ex.printStackTrace()
+//            }
+//        }
+    }
+
+    private fun getPassWord(
         password: String
     ): String {
-        return withContext(Dispatchers.IO) {
+        return runCatching {
             val time = getTime()
             val connection =
                 Jsoup.connect("${loginState.value.url}/xtgl/login_getPublicKey.html?time=$time")
@@ -280,22 +301,46 @@ class AppViewModel @Inject constructor(private val appRepository: AppRepository)
             val response = connection.execute()
             val responseBody = response.body()
             val data = Json.decodeFromString<PublicKeyList>(responseBody)
-            val passWord = B64.hexToB64(
+            B64.hexToB64(
                 RSAEncoder.rsaEncrypt(
                     password,
                     B64.b64ToHex(data.modulus),
                     B64.b64ToHex(data.exponent)
                 )
             )
-            return@withContext passWord
+        }.getOrElse {
+            Log.e("getPassWord", "Error encrypting password", it)
+            "" // 或抛出异常
         }
+//        return withContext(Dispatchers.IO) {
+//            val time = getTime()
+//            val connection =
+//                Jsoup.connect("${loginState.value.url}/xtgl/login_getPublicKey.html?time=$time")
+//                    .header(
+//                        "User-Agent",
+//                        "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36 Edg/115.0.1901.203"
+//                    )
+//                    .cookies(loginState.value.cookies)
+//                    .ignoreContentType(true)
+//            val response = connection.execute()
+//            val responseBody = response.body()
+//            val data = Json.decodeFromString<PublicKeyList>(responseBody)
+//            val passWord = B64.hexToB64(
+//                RSAEncoder.rsaEncrypt(
+//                    password,
+//                    B64.b64ToHex(data.modulus),
+//                    B64.b64ToHex(data.exponent)
+//                )
+//            )
+//            return@withContext passWord
+//        }
     }
 
     private suspend fun login(
         passWord: String,
         yhm: String
     ) {
-        withContext(Dispatchers.IO) {
+        runCatching {
             val time = getTime()
             val connection =
                 Jsoup.connect("${loginState.value.url}/xtgl/login_slogin.html?time=$time")
@@ -311,38 +356,74 @@ class AppViewModel @Inject constructor(private val appRepository: AppRepository)
                     .ignoreContentType(true)
                     .followRedirects(false)  // 禁用自动重定向
                     .method(Connection.Method.POST)
-
-            try {
-                val response = connection.execute()
-                if (response.statusCode() == 302) {
-                    val setCookie = response.headers("Set-Cookie")
-                    val jsEsSionId = setCookie.map { it.split(";")[0] }
-                        .firstOrNull { it.startsWith("JSESSIONID=") }
-                        ?.substringAfter("JSESSIONID=")
-                    val newCookies = mutableMapOf<String, String>()
-                    newCookies["JSESSIONID"] = jsEsSionId ?: ""
-                    val cookieString = "JSESSIONID=$jsEsSionId"
-                    appRepository.setCookies(cookieString)
-                    appRepository.setIsLogin(true)
-                    _loginState.update {
-                        it.copy(
-                            cookies = newCookies,
-                            isLogin = true
-                        )
+            val response = connection.execute()
+            if (response.statusCode() == 302) {
+                val newCookies = response.headers("Set-Cookie")
+                    .mapNotNull { it.split(";").firstOrNull() }
+                    .associate {
+                        val parts = it.split("=")
+                        parts[0] to parts[1]
                     }
-                } else {
-                    _loginState.update {
-                        it.copy(
-                            isLogin = false
-                        )
-                    }
-                    println("登录失败")
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                println("Login request failed: ${e.message}")
+                val cookieString = newCookies.entries.joinToString(";") { "${it.key}=${it.value}" }
+                appRepository.setCookies(cookieString)
+                appRepository.setIsLogin(true)
+                _loginState.update { it.copy(cookies = newCookies, isLogin = true) }
+            } else {
+                _loginState.update { it.copy(isLogin = false) }
+                Log.d("login", "Login failed")
             }
+        }.onFailure {
+            Log.e("login", "Login request failed", it)
         }
+
+//        withContext(Dispatchers.IO) {
+//            val time = getTime()
+//            val connection =
+//                Jsoup.connect("${loginState.value.url}/xtgl/login_slogin.html?time=$time")
+//                    .header("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
+//                    .header(
+//                        "User-Agent",
+//                        "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36 Edg/115.0.1901.203"
+//                    )
+//                    .data("csrftoken", loginState.value.csrfToken)
+//                    .data("yhm", yhm)
+//                    .data("mm", passWord)
+//                    .cookies(loginState.value.cookies)
+//                    .ignoreContentType(true)
+//                    .followRedirects(false)  // 禁用自动重定向
+//                    .method(Connection.Method.POST)
+//
+//            try {
+//                val response = connection.execute()
+//                if (response.statusCode() == 302) {
+//                    val setCookie = response.headers("Set-Cookie")
+//                    val jsEsSionId = setCookie.map { it.split(";")[0] }
+//                        .firstOrNull { it.startsWith("JSESSIONID=") }
+//                        ?.substringAfter("JSESSIONID=")
+//                    val newCookies = mutableMapOf<String, String>()
+//                    newCookies["JSESSIONID"] = jsEsSionId ?: ""
+//                    val cookieString = "JSESSIONID=$jsEsSionId"
+//                    appRepository.setCookies(cookieString)
+//                    appRepository.setIsLogin(true)
+//                    _loginState.update {
+//                        it.copy(
+//                            cookies = newCookies,
+//                            isLogin = true
+//                        )
+//                    }
+//                } else {
+//                    _loginState.update {
+//                        it.copy(
+//                            isLogin = false
+//                        )
+//                    }
+//                    println("登录失败")
+//                }
+//            } catch (e: Exception) {
+//                e.printStackTrace()
+//                println("Login request failed: ${e.message}")
+//            }
+//        }
     }
 
     fun logout(){
@@ -352,43 +433,40 @@ class AppViewModel @Inject constructor(private val appRepository: AppRepository)
         }
     }
 
-    suspend fun getUserInfo(): Result<String>{
-        return withContext(Dispatchers.IO) {
-            // 定义最大重试次数
-            val maxRetries = 3
-            var currentRetry = 0
-            var name: String?
-            while (currentRetry < maxRetries) {
-                try {
-                    val connection =
-                        Jsoup.connect("${loginState.value.url}/xsxxxggl/xsgrxxwh_cxXsgrxx.html?gnmkdm=N100801&layout=default&su=${loginState.value.userName}")
-                            .header(
-                                "Content-Type",
-                                "application/x-www-form-urlencoded;charset=utf-8"
-                            )
-                            .header(
-                                "User-Agent",
-                                "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36 Edg/115.0.1901.203"
-                            )
-                            .cookies(loginState.value.cookies)
-                            .ignoreContentType(true)
-                    val response = connection.execute()
-                    if(response.statusCode() == 200){
-                        val document = Jsoup.parse(response.body())
-                        name = document.selectFirst("#col_xm .form-control-static")?.text() ?: ""
-                        return@withContext Result.success(name)
-                    }
-                } catch (e: Exception) {
-                    currentRetry++
-                    if (currentRetry < maxRetries) {
-                        delay(1000L)
-                    } else {
-                        return@withContext Result.failure(e)
-                    }
+    suspend fun getUserInfo(): Result<String> = withContext(Dispatchers.IO) {
+        val maxRetries = 3
+        repeat(maxRetries) { currentRetry ->
+            runCatching {
+                val connection =
+                    Jsoup.connect("${loginState.value.url}/xsxxxggl/xsgrxxwh_cxXsgrxx.html?gnmkdm=N100801&layout=default&su=${loginState.value.userName}")
+                        .header(
+                            "Content-Type",
+                            "application/x-www-form-urlencoded;charset=utf-8"
+                        )
+                        .header(
+                            "User-Agent",
+                            "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36 Edg/115.0.1901.203"
+                        )
+                        .cookies(loginState.value.cookies)
+                        .ignoreContentType(true)
+                val response = connection.execute()
+                if (response.statusCode() == 200) {
+                    val document = Jsoup.parse(response.body())
+                    document.selectFirst("#col_xm .form-control-static")?.text() ?: ""
+                } else {
+                    throw Exception("HTTP request failed with status code: ${response.statusCode()}")
+                }
+            }.onSuccess {
+                return@withContext Result.success(it)
+            }.onFailure {
+                if (currentRetry < maxRetries - 1) {
+                    delay(1000L)
+                } else {
+                    return@withContext Result.failure(it)
                 }
             }
-            Result.failure(Exception("Failed to retrieve data after $maxRetries retries"))
         }
+        Result.failure(Exception("Failed to retrieve data after $maxRetries retries"))
     }
 
     suspend fun setCourseInfo(
@@ -414,22 +492,21 @@ class AppViewModel @Inject constructor(private val appRepository: AppRepository)
         semester: String,
         startDate: String,
     ) {
-        val isSummerTime = when (scheduleSelected) {
-            0 -> true
-            else -> false
-        }
-        val result = getCourseList(year, semester)
-        result.onSuccess { course ->
-            appRepository.setCourseData(course.second)
+        val isSummerTime = scheduleSelected == 0 // 简化 isSummerTime 计算
+        getCourseList(year, semester).onSuccess { course ->
+            appRepository.setCourseData(course.responseBody)
             appRepository.setCourseStartDate(startDate)
-            Log.d("json2", course.second)
+            Log.d("json2", course.responseBody)
             _courseState.update {
                 it.copy(
                     startDate = startDate,
                     isSummerTime = isSummerTime,
-                    courseData = course.first.kbList
+                    courseData = course.courseList.kbList
                 )
             }
+        }.onFailure { throwable -> // 添加 onFailure 处理错误
+            Log.e("getCourseData", "Failed to get course data", throwable)
+            // 可以在这里显示错误消息或执行其他错误处理操作
         }
     }
 
@@ -437,41 +514,40 @@ class AppViewModel @Inject constructor(private val appRepository: AppRepository)
     private suspend fun getCourseList(
         year: String,
         semester: String
-    ): Result<Pair<CourseJsonList, String>> {
-        return withContext(Dispatchers.IO) {
-            val term = when (semester) {
-                "1" -> "3"
-                "2" -> "12"
-                else -> "16"
-            }
-
-            val connection =
-                Jsoup.connect("https://219-231-0-156.webvpn.ahjzu.edu.cn/kbcx/xskbcx_cxXsKb.html?gnmkdm=N253508")
-                    .header("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
-                    .header(
-                        "User-Agent",
-                        "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36 Edg/115.0.1901.203"
-                    )
-                    .data("xnm", year)
-                    .data("xqm", term)
-                    .cookies(loginState.value.cookies)
-                    .ignoreContentType(true)
-                    .followRedirects(false)  // 禁用自动重定向
-                    .method(Connection.Method.POST)
-            try {
-                val response = connection.execute()
-                val responseBody = response.body()
-                if (responseBody.isNotBlank()) {
-                    val json = Json { ignoreUnknownKeys = true }
-                    val data = json.decodeFromString<CourseJsonList>(responseBody)
-                    val result = Pair<CourseJsonList, String>(data, responseBody)
-                    return@withContext Result.success(result)
-                }
-            } catch (e: Exception) {
-                return@withContext Result.failure(e)
-            }
-            return@withContext Result.failure(Exception("Failed to retrieve data after  retries"))
+    ): Result<CourseResult> = withContext(Dispatchers.IO) {
+        val term = when (semester) {
+            "1" -> "3"
+            "2" -> "12"
+            in listOf("3", "12", "16") -> semester
+            else -> "16"
         }
+        val connection =
+            Jsoup.connect("${loginState.value.url}/kbcx/xskbcx_cxXsKb.html?gnmkdm=N253508")
+                .header("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
+                .header(
+                    "User-Agent",
+                    "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36 Edg/115.0.1901.203"
+                )
+                .data("xnm", year)
+                .data("xqm", term)
+                .cookies(loginState.value.cookies)
+                .ignoreContentType(true)
+                .followRedirects(false)  // 禁用自动重定向
+                .method(Connection.Method.POST)
+        runCatching {
+            val response = connection.execute()
+            val responseBody = response.body()
+            if (responseBody.isNotBlank()) {
+                val json = Json { ignoreUnknownKeys = true }
+                val data = json.decodeFromString<CourseJsonList>(responseBody)
+                CourseResult(data, responseBody)
+            } else {
+                throw Exception("Response body is empty")
+            }
+        }.fold(
+            onSuccess = { Result.success(it) },
+            onFailure = { Result.failure(Exception("Failed to get course list: ${it.message}")) }
+        )
     }
 
     suspend fun setIsAutoLogin(isAutoLogin: Boolean) {

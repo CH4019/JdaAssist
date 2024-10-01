@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Storage
@@ -31,12 +32,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ch4019.jdaassist.model.WELCOME_STATUS
 import com.ch4019.jdaassist.model.dataStore
+import com.ch4019.jdaassist.util.openWebPage
 import com.ch4019.jdaassist.viewmodel.AppViewModel
 import kotlinx.coroutines.flow.map
 
@@ -45,34 +50,34 @@ import kotlinx.coroutines.flow.map
 fun Welcome(
     konfettiState: MutableState<Boolean>,
     appViewModel: AppViewModel,
+    isAgreePrivacy: Boolean
 ) {
     val context = LocalContext.current
     val activity = (context as? Activity)
-    val privacyData = appViewModel.isAgreePrivacy.collectAsState()
-    val isAgreePrivacy = !privacyData.value.isAgreePrivacy
-    var visible by remember { mutableStateOf(isAgreePrivacy) }
-    if (!visible) {
-        return
-    }
+    var visible by remember { mutableStateOf(false) }
 
     val konfettiValue by context.dataStore.data.map { preferences ->
         preferences[WELCOME_STATUS] ?: false
     }.collectAsState(initial = false)
 
-    Permission(
-        onDismissRequest = {
-        },
-        onDismiss = {
-            visible = false
-            // 结束 Activity
-            activity?.finishAffinity()
-        },
-        onConfirm = {
-            visible = false
-            konfettiState.value = true
-            appViewModel.makeAgreePrivacy(true)
-        },
-    )
+    visible = isAgreePrivacy
+
+    if (visible) {
+        Permission(
+            onDismissRequest = {
+            },
+            onDismiss = {
+                visible = false
+                // 结束 Activity
+                activity?.finishAffinity()
+            },
+            onConfirm = {
+                visible = false
+                konfettiState.value = true
+                appViewModel.makeAgreePrivacy(true)
+            },
+        )
+    }
 }
 
 @Composable
@@ -81,6 +86,26 @@ fun Permission(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
+    val context = LocalContext.current
+    val annotatedString = buildAnnotatedString {
+        append("根据相关政策规定，你需要先阅读并同意")
+        pushStringAnnotation(
+            tag = "terms",
+            annotation = "https://jdaassistant.ch4019.fun/docs/AppUpdateLog/terms_of_user"
+        )
+        addStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary), start = 18, end = 33)
+        append("《JdaAssist使用条例》")
+        pop()
+        append("和")
+        pushStringAnnotation(
+            tag = "privacy",
+            annotation = "https://jdaassistant.ch4019.fun/docs/AppUpdateLog/privacy"
+        )
+        addStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary), start = 34, end = 40)
+        append("《隐私协议》")
+        pop()
+        append("后才能开始使用本软件")
+    }
     DynamicHeightDialog(
         onDismissRequest = onDismissRequest
     ) {
@@ -108,12 +133,35 @@ fun Permission(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "根据相关政策规定，你需要先阅读并同意《JdaAssist使用条例》和《隐私协议》后才能开始使用本软件",
-                    fontWeight = FontWeight.Light,
-                    fontSize = 16.sp,
+                ClickableText(
+                    text = annotatedString,
+                    style = TextStyle(fontWeight = FontWeight.Light, fontSize = 16.sp),
+                    onClick = { offset ->
+                        annotatedString.getStringAnnotations(
+                            tag = "terms",
+                            start = offset,
+                            end = offset
+                        )
+                            .firstOrNull()?.let { annotation ->
+                                openWebPage(context, annotation.item)
+                            }
+                        annotatedString.getStringAnnotations(
+                            tag = "privacy",
+                            start = offset,
+                            end = offset
+                        )
+                            .firstOrNull()?.let { annotation ->
+                                openWebPage(context, annotation.item)
+                            }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
+//                Text(
+//                    text = "根据相关政策规定，你需要先阅读并同意《JdaAssist使用条例》和《隐私协议》后才能开始使用本软件",
+//                    fontWeight = FontWeight.Light,
+//                    fontSize = 16.sp,
+//                    modifier = Modifier.fillMaxWidth()
+//                )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "为确保软件的正常运行，软件会请求以下权限",

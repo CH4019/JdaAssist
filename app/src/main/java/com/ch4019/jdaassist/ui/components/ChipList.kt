@@ -8,8 +8,8 @@ import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ElevatedFilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -31,7 +31,7 @@ fun ChipList(
         modifier = Modifier
             .wrapContentSize(align = Alignment.Center)
     ) {
-        ElevatedFilterChip(
+        InputChip(
             selected = selected.value,
             onClick = {toSelect.value = !toSelect.value},
             label = { Text(label.value) },
