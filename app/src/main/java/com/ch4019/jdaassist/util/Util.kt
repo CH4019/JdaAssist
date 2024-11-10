@@ -6,6 +6,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import android.widget.Toast
 import androidx.annotation.FloatRange
 import androidx.core.graphics.ColorUtils
@@ -13,7 +14,9 @@ import com.ch4019.jdaassist.viewmodel.CourseJsonList
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
+import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.math.min
 
 fun PackageManager.getPackageInfoCompat(packageName: String, flags: Int = 0): PackageInfo =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -89,4 +92,43 @@ fun openWebPage(context: Context, url: String) {
 
 fun showToast(context: Context, message: String) {
     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+}
+
+// 获取软件当前 versionName
+fun getCurrentVersionName(context: Context): String {
+    return try {
+        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+        packageInfo.versionName.toString()
+    } catch (e: PackageManager.NameNotFoundException) {
+        Log.e("UpdateCheck", "Failed to get current version name", e)
+        "" // 或其他默认值
+    }
+}
+
+// 比较版本号（之前提供的代码）
+fun isNewerVersion(latestVersion: String, currentVersion: String): Boolean {
+    val latestParts = latestVersion.split(".").map { it.toIntOrNull() ?: 0 }
+    val currentParts = currentVersion.split(".").map { it.toIntOrNull() ?: 0 }
+
+    val minLength = min(latestParts.size, currentParts.size) // 使用 minLength
+
+    for (i in 0 until minLength) { // 循环到 minLength
+        val latestPart = latestParts[i]
+        val currentPart = currentParts[i]
+
+        if (latestPart > currentPart) {
+            return true // 前面部分较大，则认为整个版本号较大
+        } else if (latestPart < currentPart) {
+            return false
+        }
+    }
+
+    // 如果前面部分都相等，则比较长度
+    return latestParts.size > currentParts.size
+}
+
+
+fun bytesToMb(bytes: Long): String {
+    val mb = bytes.toDouble() / (1024 * 1024)
+    return String.format(Locale.getDefault(), "%.2f", mb) // 保留两位小数
 }

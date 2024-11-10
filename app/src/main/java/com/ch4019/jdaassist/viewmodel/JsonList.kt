@@ -55,3 +55,20 @@ data class GradesInfo(
         val courseScore: String = "", // 课程成绩
     )
 }
+
+@Serializable
+data class AppVision(
+    @SerialName("tag_name")
+    val version: String = "",
+    @SerialName("name")
+    val name: String = "",
+    val assets: List<Assets> = listOf(),
+) {
+    @Serializable
+    data class Assets(
+        @SerialName("size")
+        val appsSize: Long = 0L,
+        @SerialName("browser_download_url")
+        val url: String = "",
+    )
+}

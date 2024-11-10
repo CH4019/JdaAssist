@@ -1,11 +1,14 @@
 package com.ch4019.jdaassist.viewmodel
 
+import android.app.Application
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ch4019.jdaassist.model.CourseResult
 import com.ch4019.jdaassist.util.B64
 import com.ch4019.jdaassist.util.RSAEncoder
+import com.ch4019.jdaassist.util.getCurrentVersionName
+import com.ch4019.jdaassist.util.isNewerVersion
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -15,20 +18,26 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.jsoup.Connection
 import org.jsoup.Jsoup
+import java.io.IOException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 @HiltViewModel
-class AppViewModel @Inject constructor(private val appRepository: AppRepository) : ViewModel() {
+class AppViewModel @Inject constructor(
+    private val appRepository: AppRepository,
+    private val application: Application
+) : ViewModel() {
     private val _loginState = MutableStateFlow(LoginState())
     private val _courseState = MutableStateFlow(CourseState())
-    private val _isAgreePrivacy = MutableStateFlow(AppState())
+    private val _appVisionState = MutableStateFlow(AppState())
     val loginState = _loginState.asStateFlow()
     val courseState = _courseState.asStateFlow()
-    val isAgreePrivacy = _isAgreePrivacy.asStateFlow()
+    val appVisionState = _appVisionState.asStateFlow()
 
     init{
         initLoginState()
@@ -38,7 +47,7 @@ class AppViewModel @Inject constructor(private val appRepository: AppRepository)
         viewModelScope.launch(Dispatchers.IO) {
 
             val isAgreePrivacy = appRepository.getIsAgreePrivacy()
-            _isAgreePrivacy.update {
+            _appVisionState.update {
                 it.copy(
                     isAgreePrivacy = isAgreePrivacy
                 )
@@ -88,7 +97,7 @@ class AppViewModel @Inject constructor(private val appRepository: AppRepository)
         isAgree: Boolean
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            _isAgreePrivacy.update {
+            _appVisionState.update {
                 it.copy(
                     isAgreePrivacy = isAgree
                 )
@@ -558,6 +567,48 @@ class AppViewModel @Inject constructor(private val appRepository: AppRepository)
                     isLogin = isAutoLogin
                 )
             }
+        }
+    }
+
+
+    fun getNewVision() {
+        viewModelScope.launch {
+            _appVisionState.update { it.copy(isNewVision = UpdateStatus.Checking) } // 开始检查
+            try {
+                val latestVersion = fetchLatestVersion()
+                val currentVersionName = getCurrentVersionName(application.applicationContext)
+                val isNewVersion = isNewerVersion(latestVersion.version, currentVersionName)
+
+                _appVisionState.update {
+                    it.copy(
+                        isNewVision = if (isNewVersion) UpdateStatus.Available else UpdateStatus.NotAvailable,
+                        appVersion = latestVersion // 假设 AppVision 有一个 version 属性
+                    )
+                }
+            } catch (e: Exception) {
+                _appVisionState.update { it.copy(isNewVision = UpdateStatus.Error) }
+                Log.e("UpdateCheck", "Failed to fetch update information", e)
+                // 可以在这里更新 appVisionState 以指示错误状态
+            }
+        }
+    }
+
+    fun closeNewVision() {
+        _appVisionState.update { it.copy(isNewVision = UpdateStatus.Error) }
+    }
+
+    private suspend fun fetchLatestVersion(): AppVision {
+        val githubUrl = "https://api.github.com/repos/ch4019/JdaAssist/releases/latest"
+        val httpClient = OkHttpClient()
+        val request = Request.Builder()
+            .url(githubUrl)
+            .build()
+
+        return withContext(Dispatchers.IO) {
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) throw IOException("Unexpected code $response")
+            val json = Json { ignoreUnknownKeys = true }
+            json.decodeFromString<AppVision>(response.body?.string() ?: "")
         }
     }
 
