@@ -86,15 +86,15 @@ fun CoursePage(
     val isBefore = currentDate < semesterStartDate
     val isAfter = currentDate >= semesterEndDate
     val dateWith = calculateDateDifference(currentDate, semesterStartDate)
-
+    val currentWeekInit = if (isBefore) {
+        0
+    } else getWeekSince(semesterStartDate, currentDate)
     // 计算当前周数
-    val currentWeek = remember { mutableIntStateOf(0) }
-    LaunchedEffect(Unit) {
-        currentWeek.intValue = if (isBefore) {
-            0
-        } else getWeekSince(semesterStartDate, currentDate)
+    val currentWeek = remember {
+        mutableIntStateOf(
+            currentWeekInit
+        )
     }
-
 
     val pagerState = rememberPagerState(
         initialPage = currentWeek.intValue,
@@ -110,7 +110,7 @@ fun CoursePage(
         courseData = CourseJsonList(coursesData.value.courseData)
         isSummerTime = coursesData.value.isSummerTime
         pagerState.animateScrollToPage(
-            currentWeek.intValue
+            currentWeekInit
         )
     }
 

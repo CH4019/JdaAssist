@@ -66,7 +66,6 @@ class MainActivity : ComponentActivity() {
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
             val privacyData = appViewModel.appVisionState.collectAsState()
-
             val welcomeStatus by context.dataStore.data
                 .map { preferences ->
                     preferences[WELCOME_STATUS] ?: false
