@@ -16,24 +16,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
-import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ch4019.jdaassist.config.AppRoute
-import com.ch4019.jdaassist.model.DARK_SWITCH_ACTIVE
-import com.ch4019.jdaassist.model.IS_DARK_MODEL
-import com.ch4019.jdaassist.model.MASK_CLICK_X
-import com.ch4019.jdaassist.model.MASK_CLICK_Y
 import com.ch4019.jdaassist.model.MaskAnimModel
-import com.ch4019.jdaassist.model.WELCOME_STATUS
-import com.ch4019.jdaassist.model.dataStore
 import com.ch4019.jdaassist.ui.components.Konfetti
 import com.ch4019.jdaassist.ui.components.MaskBox
 import com.ch4019.jdaassist.ui.components.Welcome
@@ -45,8 +36,6 @@ import com.ch4019.jdaassist.ui.screen.statusChecks.StatusChecksPage
 import com.ch4019.jdaassist.ui.theme.JdaAssistTheme
 import com.ch4019.jdaassist.viewmodel.AppViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -55,71 +44,33 @@ class MainActivity : ComponentActivity() {
 
         // Install the splash screen
         installSplashScreen()
-
-        enableEdgeToEdge()
         //设置全屏
+        enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
             val navController = rememberNavController()
             val appViewModel: AppViewModel = viewModel()
-            val context = LocalContext.current
-            val scope = rememberCoroutineScope()
-            val privacyData = appViewModel.appVisionState.collectAsState()
-            val welcomeStatus by context.dataStore.data
-                .map { preferences ->
-                    preferences[WELCOME_STATUS] ?: false
-                }
-                .collectAsState(initial = false)
-            val konfettiState = rememberKonfettiState(welcomeStatus)
-            val isDarkTheme by context.dataStore.data
-                .map { preferences ->
-                    preferences[IS_DARK_MODEL] ?: false
-                }
-                .collectAsState(initial = false)
-            val darkSwitchActive by context.dataStore.data
-                .map { preferences ->
-                    preferences[DARK_SWITCH_ACTIVE] ?: false
-                }
-                .collectAsState(initial = false)
-            val maskClickX by context.dataStore.data
-                .map { preferences ->
-                    preferences[MASK_CLICK_X] ?: 0f
-                }
-                .collectAsState(initial = 0f)
-            val maskClickY by context.dataStore.data
-                .map { preferences ->
-                    preferences[MASK_CLICK_Y] ?: 0f
-                }
-                .collectAsState(initial = 0f)
+            val uiPrefs by appViewModel.uiPrefs.collectAsState()
+            val konfettiState = rememberKonfettiState(uiPrefs.welcomeDone)
 
             JdaAssistTheme(
-                darkTheme = isDarkTheme
+                darkTheme = uiPrefs.isDark
             ) {
                 MaskBox(
                     animTime = 400,
-                    maskComplete = {
-                        scope.launch {
-                            context.dataStore.edit {
-                                it[IS_DARK_MODEL] = !isDarkTheme
-                            }
-                        }
-                    },
-                    animFinish = {
-                        scope.launch {
-                            context.dataStore.edit {
-                                it[DARK_SWITCH_ACTIVE] = false
-                            }
-                        }
-                    },
+                    maskComplete = { appViewModel.toggleDarkMode() },
+                    animFinish = { appViewModel.resetDarkSwitch() },
                 ) { maskActiveEvent ->
-                    LaunchedEffect(darkSwitchActive) {
-                        if (!darkSwitchActive) return@LaunchedEffect
-                        if (isDarkTheme) {
-                            maskActiveEvent(MaskAnimModel.SHRINK, maskClickX, maskClickY)
-                        }else {
-                            maskActiveEvent(MaskAnimModel.EXPEND, maskClickX, maskClickY)
-                        }
+                    LaunchedEffect(uiPrefs.darkSwitchActive) {
+                        if (!uiPrefs.darkSwitchActive) return@LaunchedEffect
+                        // 先更新点击坐标
+                        appViewModel.updateMaskClick(uiPrefs.maskClickX, uiPrefs.maskClickY)
+                        maskActiveEvent(
+                            if (uiPrefs.isDark) MaskAnimModel.SHRINK else MaskAnimModel.EXPEND,
+                            uiPrefs.maskClickX,
+                            uiPrefs.maskClickY
+                        )
                     }
 
                     Surface(
@@ -170,7 +121,6 @@ class MainActivity : ComponentActivity() {
                         Welcome(
                             konfettiState,
                             appViewModel,
-                            (!privacyData.value.isAgreePrivacy)
                         )
                         Konfetti(konfettiState)
                     }

@@ -1,7 +1,6 @@
 package com.ch4019.jdaassist.ui.screen.about
 
 import android.content.Intent
-import android.net.Uri
 import android.view.MotionEvent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
@@ -38,6 +37,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -45,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -65,10 +68,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.pm.PackageInfoCompat.getLongVersionCode
+import androidx.core.net.toUri
 import androidx.navigation.NavHostController
 import com.ch4019.jdaassist.R
 import com.ch4019.jdaassist.ui.components.CardButton
@@ -94,6 +99,8 @@ fun AboutPage(
         targetValue = if (isPressed) 0.8f else 1f, // 按下时缩小到0.95f，松开时恢复到1f
         animationSpec = tween(durationMillis = 150) // 动画持续时间
     )
+    val snackbarHostState = remember { SnackbarHostState() }
+
     val context = LocalContext.current
     Scaffold(
         topBar = {
@@ -111,9 +118,20 @@ fun AboutPage(
                 },
             )
         },
-        bottomBar = {
-
-        }
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    modifier = Modifier
+                        .padding(bottom = 16.dp)
+                        .padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(25.dp)
+                ) {
+                    // The Material spec recommends a maximum of 2 lines of text.
+                    Text(data.visuals.message, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        },
+        bottomBar = {}
     ) { paddingValues ->
         AboutView(
             modifier = Modifier
@@ -256,7 +274,23 @@ fun AboutPage(
                 }
             }
 
-            UpdateStatus.NotAvailable, UpdateStatus.Error -> {}
+            UpdateStatus.NotAvailable -> {
+                LaunchedEffect(Unit) {
+                    snackbarHostState.showSnackbar("暂无更新(欢迎催更>v<)")
+//                    showSnackbarAndReset("暂无更新(欢迎催更>v<)")
+                    appViewModel.closeNewVision()
+                }
+            }
+
+            UpdateStatus.Error -> {
+                LaunchedEffect(Unit) {
+                    snackbarHostState.showSnackbar("当前数据获取出现问题，请稍后重试！")
+//                    showSnackbarAndReset("当前数据获取出现问题，请稍后重试！")
+                    appViewModel.closeNewVision()
+                }
+            }
+
+            else -> {}
         }
     }
 }
@@ -270,9 +304,9 @@ fun AboutView(
     val urlGithub = "https://github.com/CH4019/JdaAssist"
     val urlTerms = "https://jdaassistant.ch4019.fun/docs/AppUpdateLog/terms_of_user"
     val urlPrivacy = "https://jdaassistant.ch4019.fun/docs/AppUpdateLog/privacy"
-    val intentGithub = Intent(Intent.ACTION_VIEW, Uri.parse(urlGithub))
-    val intentTerms = Intent(Intent.ACTION_VIEW, Uri.parse(urlTerms))
-    val intentPrivacy = Intent(Intent.ACTION_VIEW, Uri.parse(urlPrivacy))
+    val intentGithub = Intent(Intent.ACTION_VIEW, urlGithub.toUri())
+    val intentTerms = Intent(Intent.ACTION_VIEW, urlTerms.toUri())
+    val intentPrivacy = Intent(Intent.ACTION_VIEW, urlPrivacy.toUri())
     val packageInfo = context.packageManager.getPackageInfoCompat(context.packageName, 0)
     val versionName = packageInfo.versionName
     val versionCode = getLongVersionCode(packageInfo)

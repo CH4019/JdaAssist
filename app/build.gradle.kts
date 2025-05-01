@@ -3,20 +3,20 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.compose.compiler)
     id("com.google.dagger.hilt.android")
-    kotlin("plugin.serialization") version "2.0.20"
+    kotlin("plugin.serialization") version "2.2.0-Beta1"
     id("com.google.devtools.ksp")
 }
 
 android {
     namespace = "com.ch4019.jdaassist"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.ch4019.jdaassist"
         minSdk = 29
-        targetSdk = 35
-        versionCode = 19
-        versionName = "1.1.4"
+        targetSdk = 36
+        versionCode = 23
+        versionName = "1.1.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -63,10 +63,10 @@ android {
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.15"
-    }
-    buildToolsVersion = "35.0.0 rc4"
+//    composeOptions {
+//        kotlinCompilerExtensionVersion = "1.5.15"
+//    }
+    buildToolsVersion = "36.0.0"
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -75,8 +75,6 @@ android {
 }
 
 composeCompiler {
-    enableStrongSkippingMode = true
-
     reportsDestination = layout.buildDirectory.dir("compose_compiler")
 //    stabilityConfigurationFile = rootProject.layout.projectDirectory.file("stability_config.conf")
 }

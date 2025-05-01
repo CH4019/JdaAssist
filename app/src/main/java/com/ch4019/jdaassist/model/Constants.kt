@@ -20,7 +20,6 @@ object DataStoreCont {
     val lastOpenData = stringPreferencesKey("lastOpenData")
     val COURSE_DATA = stringPreferencesKey("courseData")
     val COURSE_START_DATE = stringPreferencesKey("courseStartDate")
-    val IS_AGREE_PRIVACY = booleanPreferencesKey("isAgreePrivacy")
 }
 
 enum class MaskAnimModel {

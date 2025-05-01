@@ -4,12 +4,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.FloatRange
 import androidx.core.graphics.ColorUtils
+import androidx.core.net.toUri
 import com.ch4019.jdaassist.viewmodel.CourseJsonList
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -86,7 +86,7 @@ fun isMonday(dateInMillis: Long): Boolean {
 }
 
 fun openWebPage(context: Context, url: String) {
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
     context.startActivity(intent)
 }
 

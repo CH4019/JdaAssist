@@ -1,11 +1,19 @@
 package com.ch4019.jdaassist.viewmodel
 
 data class AppState(
-    val isAgreePrivacy: Boolean = false,
-    val isNewVision: UpdateStatus = UpdateStatus.NotAvailable,
+    val isNewVision: UpdateStatus = UpdateStatus.InitState,
     val appVersion: AppVision = AppVision(),
 )
 
+data class UiPrefs(
+    val welcomeDone: Boolean,
+    val isDark: Boolean,
+    val darkSwitchActive: Boolean,
+    val maskClickX: Float,
+    val maskClickY: Float
+)
+
+
 enum class UpdateStatus {
-    Checking, Available, NotAvailable, Error
+    InitState, Checking, Available, NotAvailable, Error
 }

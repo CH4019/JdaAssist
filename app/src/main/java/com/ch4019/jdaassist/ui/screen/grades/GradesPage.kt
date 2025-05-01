@@ -49,9 +49,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -400,6 +402,7 @@ fun FloatButton(
     content: () -> Unit
 ) {
     val context = LocalContext.current
+    val hapticFeedback = LocalHapticFeedback.current
     //                        定义一个用于控制缩放状态的变量
     var isPressed by remember { mutableStateOf(false) }
 //                        使用 animateFloatAsState 动态控制缩放动画
@@ -419,6 +422,7 @@ fun FloatButton(
                     when (motionEvent.action) {
                         MotionEvent.ACTION_DOWN -> {
                             isPressed = true // 按下时缩小
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                             true
                         }
 

@@ -17,14 +17,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalView
 import androidx.core.animation.addListener
 import androidx.core.graphics.applyCanvas
+import androidx.core.graphics.createBitmap
 import com.ch4019.jdaassist.model.MaskAnimModel
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -71,12 +72,8 @@ fun MaskBox(
             )
         }
         maskAnimModel = animModel
-        viewScreenshot = Bitmap
-            .createBitmap(
-                bitmapBound.width.roundToInt(),
-                bitmapBound.height.roundToInt(),
-                Bitmap.Config.ARGB_8888
-            )
+        viewScreenshot =
+            createBitmap(bitmapBound.width.roundToInt(), bitmapBound.height.roundToInt())
             .applyCanvas {
                 translate(-bitmapBound.left, -bitmapBound.top)
                 rootView.draw(this)
@@ -115,13 +112,14 @@ fun MaskBox(
                                 paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
                                 drawCircle(clickX, clickY, maskRadius, paint)
                             }
+
                             MaskAnimModel.SHRINK -> {
                                 drawCircle(clickX, clickY, maskRadius, paint)
                                 paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
                                 drawBitmap(viewScreenshot!!, 0f, 0f, paint)
                             }
                         }
-                        paint.xfermode=null
+                        paint.xfermode = null
                         restoreToCount(layer)
 
                     }

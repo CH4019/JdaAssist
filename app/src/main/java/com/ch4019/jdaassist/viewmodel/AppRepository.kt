@@ -28,9 +28,6 @@ class AppRepository @Inject constructor(
     suspend fun getCourseStartDate() = getValue(DataStoreCont.COURSE_START_DATE) ?: ""
     suspend fun setCourseStartDate(newValue: String) =
         setValue(DataStoreCont.COURSE_START_DATE, newValue)
-    suspend fun getIsAgreePrivacy() = getValue(DataStoreCont.IS_AGREE_PRIVACY) ?: false
-    suspend fun setIsAgreePrivacy(newValue: Boolean) =
-        setValue(DataStoreCont.IS_AGREE_PRIVACY, newValue)
 
     private suspend fun <T : Any> getValue(key: Preferences.Key<T>): T? {
         return dataStore.data.map { it[key] }.first()

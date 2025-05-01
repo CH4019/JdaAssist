@@ -64,11 +64,13 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -151,6 +153,7 @@ fun ContentUiPage(
     val classInfoModalBottomSheet = rememberModalBottomSheetState()
     val showBottomSheet = remember { mutableStateOf(false) }
     val density = LocalDensity.current
+    val hapticFeedback = LocalHapticFeedback.current
     val height = with(density) { WindowInsets.statusBars.getTop(density).toDp() }
 
     LaunchedEffect(modalBottomSheetState.currentValue) {
@@ -204,6 +207,7 @@ fun ContentUiPage(
                             .pointerInteropFilter { motionEvent ->
                                 when (motionEvent.action) {
                                     MotionEvent.ACTION_DOWN -> {
+                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                         isPressed = true // 按下时缩小
                                         true
                                     }
@@ -271,6 +275,7 @@ fun ContentUiPage(
                     }
                     IconButton(
                         onClick = {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                             scope.launch {
                                 if (pagerState.currentPage == 0) {
                                     pagerState.animateScrollToPage(
@@ -371,14 +376,14 @@ fun ContentUiPage(
                     ) {
                         Text(
                             text = classInfo.value.className,
-                            fontSize = 16.sp,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                         )
                         Spacer(Modifier.weight(1f))
                         Text(
                             text = "${classInfo.value.classCredit}学分",
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.Normal,
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }

@@ -2,9 +2,17 @@ package com.ch4019.jdaassist.viewmodel
 
 import android.app.Application
 import android.util.Log
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ch4019.jdaassist.model.CourseResult
+import com.ch4019.jdaassist.model.DARK_SWITCH_ACTIVE
+import com.ch4019.jdaassist.model.IS_DARK_MODEL
+import com.ch4019.jdaassist.model.MASK_CLICK_X
+import com.ch4019.jdaassist.model.MASK_CLICK_Y
+import com.ch4019.jdaassist.model.WELCOME_STATUS
 import com.ch4019.jdaassist.util.B64
 import com.ch4019.jdaassist.util.RSAEncoder
 import com.ch4019.jdaassist.util.getCurrentVersionName
@@ -13,7 +21,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,7 +42,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AppViewModel @Inject constructor(
     private val appRepository: AppRepository,
-    private val application: Application
+    private val application: Application,
+    private val dataStore: DataStore<Preferences>
 ) : ViewModel() {
     private val _loginState = MutableStateFlow(LoginState())
     private val _courseState = MutableStateFlow(CourseState())
@@ -39,20 +52,34 @@ class AppViewModel @Inject constructor(
     val courseState = _courseState.asStateFlow()
     val appVisionState = _appVisionState.asStateFlow()
 
+    val uiPrefs: StateFlow<UiPrefs> = dataStore.data
+        .map { prefs ->
+            UiPrefs(
+                welcomeDone = prefs[WELCOME_STATUS] ?: false,
+                isDark = prefs[IS_DARK_MODEL] ?: false,
+                darkSwitchActive = prefs[DARK_SWITCH_ACTIVE] ?: false,
+                maskClickX = prefs[MASK_CLICK_X] ?: 0f,
+                maskClickY = prefs[MASK_CLICK_Y] ?: 0f
+            )
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            UiPrefs(
+                false,
+                isDark = false,
+                darkSwitchActive = false,
+                maskClickX = 0f,
+                maskClickY = 0f
+            )
+        )
+
+
     init{
         initLoginState()
     }
 
     private fun initLoginState() {
         viewModelScope.launch(Dispatchers.IO) {
-
-            val isAgreePrivacy = appRepository.getIsAgreePrivacy()
-            _appVisionState.update {
-                it.copy(
-                    isAgreePrivacy = isAgreePrivacy
-                )
-            }
-
             val userName = appRepository.getUserName().ifBlank { "" }
             val isLogin = appRepository.getIsLogin()
             val passWord = appRepository.getPassWord().ifBlank { "" }
@@ -90,19 +117,6 @@ class AppViewModel @Inject constructor(
                     courseData = coursesData.kbList
                 )
             }
-        }
-    }
-
-    fun makeAgreePrivacy(
-        isAgree: Boolean
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            _appVisionState.update {
-                it.copy(
-                    isAgreePrivacy = isAgree
-                )
-            }
-            appRepository.setIsAgreePrivacy(isAgree)
         }
     }
 
@@ -384,55 +398,6 @@ class AppViewModel @Inject constructor(
         }.onFailure {
             Log.e("login", "Login request failed", it)
         }
-
-//        withContext(Dispatchers.IO) {
-//            val time = getTime()
-//            val connection =
-//                Jsoup.connect("${loginState.value.url}/xtgl/login_slogin.html?time=$time")
-//                    .header("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
-//                    .header(
-//                        "User-Agent",
-//                        "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36 Edg/115.0.1901.203"
-//                    )
-//                    .data("csrftoken", loginState.value.csrfToken)
-//                    .data("yhm", yhm)
-//                    .data("mm", passWord)
-//                    .cookies(loginState.value.cookies)
-//                    .ignoreContentType(true)
-//                    .followRedirects(false)  // 禁用自动重定向
-//                    .method(Connection.Method.POST)
-//
-//            try {
-//                val response = connection.execute()
-//                if (response.statusCode() == 302) {
-//                    val setCookie = response.headers("Set-Cookie")
-//                    val jsEsSionId = setCookie.map { it.split(";")[0] }
-//                        .firstOrNull { it.startsWith("JSESSIONID=") }
-//                        ?.substringAfter("JSESSIONID=")
-//                    val newCookies = mutableMapOf<String, String>()
-//                    newCookies["JSESSIONID"] = jsEsSionId ?: ""
-//                    val cookieString = "JSESSIONID=$jsEsSionId"
-//                    appRepository.setCookies(cookieString)
-//                    appRepository.setIsLogin(true)
-//                    _loginState.update {
-//                        it.copy(
-//                            cookies = newCookies,
-//                            isLogin = true
-//                        )
-//                    }
-//                } else {
-//                    _loginState.update {
-//                        it.copy(
-//                            isLogin = false
-//                        )
-//                    }
-//                    println("登录失败")
-//                }
-//            } catch (e: Exception) {
-//                e.printStackTrace()
-//                println("Login request failed: ${e.message}")
-//            }
-//        }
     }
 
     fun logout(){
@@ -478,22 +443,22 @@ class AppViewModel @Inject constructor(
         Result.failure(Exception("Failed to retrieve data after $maxRetries retries"))
     }
 
-    suspend fun setCourseInfo(
-        startDate: String,
-        endDate: String,
-        isSummerTime: Boolean,
-        year: String,
-        semester: String
-    ) {
-        _courseState.update {
-            it.copy(
-                startDate = startDate,
-                endDate = endDate,
-                isSummerTime = isSummerTime
-            )
-        }
-        getCourseList(year, semester)
-    }
+//    suspend fun setCourseInfo(
+//        startDate: String,
+//        endDate: String,
+//        isSummerTime: Boolean,
+//        year: String,
+//        semester: String
+//    ) {
+//        _courseState.update {
+//            it.copy(
+//                startDate = startDate,
+//                endDate = endDate,
+//                isSummerTime = isSummerTime
+//            )
+//        }
+//        getCourseList(year, semester)
+//    }
 
     suspend fun getCourseData(
         scheduleSelected: Int,
@@ -578,7 +543,6 @@ class AppViewModel @Inject constructor(
                 val latestVersion = fetchLatestVersion()
                 val currentVersionName = getCurrentVersionName(application.applicationContext)
                 val isNewVersion = isNewerVersion(latestVersion.version, currentVersionName)
-
                 _appVisionState.update {
                     it.copy(
                         isNewVision = if (isNewVersion) UpdateStatus.Available else UpdateStatus.NotAvailable,
@@ -586,15 +550,17 @@ class AppViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                _appVisionState.update { it.copy(isNewVision = UpdateStatus.Error) }
-                Log.e("UpdateCheck", "Failed to fetch update information", e)
+                Log.e("UpdateCheck", "Failed to fetch update information: ${e.message}", e)
+                _appVisionState.update {
+                    it.copy(isNewVision = UpdateStatus.Error)
+                }
                 // 可以在这里更新 appVisionState 以指示错误状态
             }
         }
     }
 
     fun closeNewVision() {
-        _appVisionState.update { it.copy(isNewVision = UpdateStatus.Error) }
+        _appVisionState.update { it.copy(isNewVision = UpdateStatus.InitState) }
     }
 
     private suspend fun fetchLatestVersion(): AppVision {
@@ -611,6 +577,27 @@ class AppViewModel @Inject constructor(
             json.decodeFromString<AppVision>(response.body?.string() ?: "")
         }
     }
+
+    // AppViewModel.kt
+    fun toggleDarkMode() = viewModelScope.launch {
+        dataStore.edit { it[IS_DARK_MODEL] = !(it[IS_DARK_MODEL] ?: false) }
+    }
+
+    fun resetDarkSwitch() = viewModelScope.launch {
+        dataStore.edit { it[DARK_SWITCH_ACTIVE] = false }
+    }
+
+    fun welcomeDone() = viewModelScope.launch {
+        dataStore.edit { it[WELCOME_STATUS] = true }
+    }
+
+    fun updateMaskClick(x: Float, y: Float) = viewModelScope.launch {
+        dataStore.edit {
+            it[MASK_CLICK_X] = x
+            it[MASK_CLICK_Y] = y
+        }
+    }
+
 
     private fun getTime(): Long {
         return System.currentTimeMillis()

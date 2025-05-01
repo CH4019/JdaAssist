@@ -130,6 +130,11 @@ fun LoginPage(
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(modifier = Modifier.height(32.dp))
+
+//            VerificationCodeField(Modifier){newCode ->
+//                uiState = uiState.copy(userName = newCode)
+//            }
+
             OutlinedTextField(
                 modifier = Modifier
                     .fillMaxWidth()
