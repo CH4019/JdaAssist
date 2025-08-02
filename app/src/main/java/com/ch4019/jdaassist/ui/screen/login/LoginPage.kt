@@ -55,15 +55,8 @@ fun LoginPage(
     var uiState by remember {
         mutableStateOf(LoginPageUiState("", "", false))
     }
-//    var userName by remember { mutableStateOf("") }
-//    var passWord by remember { mutableStateOf("") }
-//    var autoUserName by remember { mutableStateOf("") }
-//    var autoPassWord by remember { mutableStateOf("") }
-//    var isShow by remember{ mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val loginState by appViewModel.loginState.collectAsState()
-//    autoUserName = loginState.userName
-//    autoPassWord = loginState.passWord
     LaunchedEffect(key1 = loginState) {
         if (loginState.isLogin) {
             navController.navigate(AppRoute.HOME){
@@ -130,11 +123,6 @@ fun LoginPage(
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(modifier = Modifier.height(32.dp))
-
-//            VerificationCodeField(Modifier){newCode ->
-//                uiState = uiState.copy(userName = newCode)
-//            }
-
             OutlinedTextField(
                 modifier = Modifier
                     .fillMaxWidth()

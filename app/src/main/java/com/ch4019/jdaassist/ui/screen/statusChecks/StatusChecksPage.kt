@@ -23,58 +23,62 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.ch4019.jdaassist.config.AppRoute
 import com.ch4019.jdaassist.viewmodel.AppViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 
+private const val STATUS_CHECK_DELAY_MS = 200L
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun StatusChecksPage(
     navController: NavHostController,
     appViewModel: AppViewModel
 ) {
-//    val logo = ImageBitmap.imageResource(R.drawable.logo)
+    // 订阅登录状态
     val loginState by appViewModel.loginState.collectAsState()
-    LaunchedEffect(Dispatchers.IO) {
-        delay(200)
-        if (loginState.isLogin) {
-            navController.navigate(AppRoute.HOME) {
-                popUpTo(AppRoute.STATUS_CHECKS) {
-                    inclusive = true
-                    saveState = true
-                }
-                launchSingleTop = true
-                restoreState = true
-            }
-        }else {
-            navController.navigate(AppRoute.LOGIN) {
-                popUpTo(AppRoute.STATUS_CHECKS) {
-                    inclusive = true
-                    saveState = true
-                }
-                launchSingleTop = true
-                restoreState = true
-            }
-        }
+    // 当loginState.isLogin 发生变化时，触发导航
+    LaunchedEffect(loginState.isLogin) {
+        // 给 UI 一点“加载”过渡时间
+        delay(STATUS_CHECK_DELAY_MS)
+        navigateByLoginState(navController, loginState.isLogin)
     }
-    Scaffold {
+    // UI 层
+    StatusLoadingUI()
+}
+
+/**
+ * 根据登录状态执行导航
+ */
+private fun navigateByLoginState(navController: NavHostController, isLoggedIn: Boolean) {
+    val targetRoute = if (isLoggedIn) AppRoute.HOME else AppRoute.LOGIN
+    navController.navigate(targetRoute) {
+        popUpTo(AppRoute.STATUS_CHECKS) {
+            inclusive = true
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
+@Composable
+private fun StatusLoadingUI() {
+    Scaffold { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
+                .background(MaterialTheme.colorScheme.background)
+                .padding(paddingValues),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
             LinearProgressIndicator(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 32.dp)
-                    .padding(bottom = 8.dp),
+                    .padding(horizontal = 32.dp, vertical = 8.dp),
                 strokeCap = StrokeCap.Round
             )
             Text(
-                text = "正在检查登录状态...",
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.bodyMedium
+                text = "正在检查登录状态…",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
             )
         }
     }

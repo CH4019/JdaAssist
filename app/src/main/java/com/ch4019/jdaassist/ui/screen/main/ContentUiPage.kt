@@ -2,23 +2,22 @@ package com.ch4019.jdaassist.ui.screen.main
 
 import android.annotation.SuppressLint
 import android.view.MotionEvent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.BarChart
@@ -31,21 +30,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -69,10 +64,9 @@ import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.edit
@@ -91,7 +85,6 @@ import com.ch4019.jdaassist.ui.screen.grades.SelectGrades
 import com.ch4019.jdaassist.util.getToDayDate
 import com.ch4019.jdaassist.util.showToast
 import com.ch4019.jdaassist.viewmodel.AppViewModel
-import com.ch4019.jdaassist.viewmodel.CourseJsonList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.map
@@ -110,17 +103,9 @@ fun ContentUiPage(
     appViewModel: AppViewModel
 ) {
     var name by remember { mutableStateOf("") }
-    var coursesData = remember { mutableStateOf(CourseJsonList()) }
     var checkUser by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-
-    var darkSwitchPositionX by remember {
-        mutableFloatStateOf(0f)
-    }
-    var darkSwitchPositionY by remember {
-        mutableFloatStateOf(0f)
-    }
     val darkSwitchActive by context.dataStore.data.map { preferences ->
         preferences[DARK_SWITCH_ACTIVE] ?: false
     }.collectAsState(initial = false)
@@ -152,9 +137,7 @@ fun ContentUiPage(
     val modalBottomSheetState = rememberModalBottomSheetState()
     val classInfoModalBottomSheet = rememberModalBottomSheetState()
     val showBottomSheet = remember { mutableStateOf(false) }
-    val density = LocalDensity.current
     val hapticFeedback = LocalHapticFeedback.current
-    val height = with(density) { WindowInsets.statusBars.getTop(density).toDp() }
 
     LaunchedEffect(modalBottomSheetState.currentValue) {
         withContext(Dispatchers.IO) {
@@ -171,188 +154,60 @@ fun ContentUiPage(
     val startDate = remember { mutableStateOf("选择开学日期") }
     val isOpenDialog = remember { mutableStateOf(false) }
     val isSelectedDate = remember { mutableStateOf(false) }
-
-    var academicYear by remember { mutableStateOf("2023") }
-    var semester by remember { mutableStateOf("1") }
+    var academicYear by remember { mutableStateOf("") }
+    var semester by remember { mutableStateOf("") }
     val iaShowClassInfo = remember { mutableStateOf(false) }
     val classInfo = remember { mutableStateOf(ClassInfo()) }
 
-    //                        定义一个用于控制缩放状态的变量
-    var isPressed by remember { mutableStateOf(false) }
-//                        使用 animateFloatAsState 动态控制缩放动画
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.8f else 1f, // 按下时缩小到0.95f，松开时恢复到1f
-        animationSpec = tween(durationMillis = 150) // 动画持续时间
-    )
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    if (pagerState.currentPage == 0) {
-                        Text(
-                            text = today.value,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    } else {
-                        Surface(
-                            onClick = { checkUser = true }
-                        ) { Text(text = name) }
+            AppTopBar(
+                pagerState.currentPage,
+                today.value,
+                name,
+                isDarkTheme,
+                darkSwitchActive,
+                onSwitchToggle = { x, y -> // 按下切换主题时保存坐标并激活遮罩
+                    scope.launch {
+                        context.dataStore.edit {
+                            it[MASK_CLICK_X] = x
+                            it[MASK_CLICK_Y] = y
+                            it[DARK_SWITCH_ACTIVE] = true
+                        }
                     }
                 },
-                navigationIcon = {
-                    IconButton(
-                        enabled = !darkSwitchActive,
-                        modifier = Modifier
-                            .pointerInteropFilter { motionEvent ->
-                                when (motionEvent.action) {
-                                    MotionEvent.ACTION_DOWN -> {
-                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        isPressed = true // 按下时缩小
-                                        true
-                                    }
-
-                                    MotionEvent.ACTION_UP -> {
-                                        isPressed = false // 松开时恢复
-                                        scope.launch {
-                                            context.dataStore.edit {
-                                                it[MASK_CLICK_X] = darkSwitchPositionX
-                                                it[MASK_CLICK_Y] = darkSwitchPositionY
-                                                it[DARK_SWITCH_ACTIVE] = true
-                                            }
-                                        }
-                                        true
-                                    }
-
-                                    MotionEvent.ACTION_CANCEL -> {
-                                        isPressed = false // 松开时恢复
-                                        true
-                                    }
-
-                                    else -> false
-                                }
-                            }
-                            .graphicsLayer {
-                                this.scaleX = scale
-                                this.scaleY = scale
-                                this.transformOrigin = TransformOrigin.Center
-                            },
-                        onClick = {
-//                            scope.launch {
-//                                context.dataStore.edit {
-//                                    it[MASK_CLICK_X] = darkSwitchPositionX
-//                                    it[MASK_CLICK_Y] = darkSwitchPositionY
-//                                    it[DARK_SWITCH_ACTIVE] = true
-//                                }
-//                            }
-                        }
-                    ) {
-                        Icon(
-                            modifier = Modifier
-                                .onGloballyPositioned {coordinates ->
-                                    darkSwitchPositionX = coordinates.boundsInRoot().center.x
-                                    darkSwitchPositionY = coordinates.boundsInRoot().center.y
-                                },
-                            imageVector = if(isDarkTheme)Icons.Rounded.DarkMode else Icons.Rounded.LightMode,
-                            contentDescription = null,
-                        )
+                onOpenSheet = { // 点击 DataSaverOn 图标时打开 BottomSheet
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                    showBottomSheet.value = true
+                },
+                onPageToggle = { // 点击 ToggleOn/ToggleOff 图标时切换页面
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                    scope.launch {
+                        val target = if (pagerState.currentPage == 0) 1 else 0
+                        pagerState.animateScrollToPage(target, 0f, tween(500))
                     }
                 },
-                actions = {
-                    AnimatedVisibility(
-                        visible = pagerState.currentPage == 0,
-                    ) {
-                        IconButton(
-                            onClick = {
-                                showBottomSheet.value = true
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.DataSaverOn,
-                                contentDescription = "Next"
-                            )
-                        }
+                onNavigateAbout = { // 点击 BarChart 图标时跳转 About
+                    navController.navigate(AppRoute.ABOUT) {
+                        launchSingleTop = true; restoreState = true
                     }
-                    IconButton(
-                        onClick = {
-                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                            scope.launch {
-                                if (pagerState.currentPage == 0) {
-                                    pagerState.animateScrollToPage(
-                                        1,
-                                        0f,
-                                        tween(
-                                            durationMillis = 500
-                                        )
-                                    )
-                                } else {
-                                    pagerState.animateScrollToPage(
-                                        0,
-                                        0f,
-                                        tween(
-                                            durationMillis = 500
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = if (pagerState.currentPage == 0) Icons.Rounded.ToggleOff else Icons.Rounded.ToggleOn,
-                            contentDescription = "Logout",
-                        )
-                    }
-                    IconButton(
-                        onClick = {
-                            navController.navigate(AppRoute.ABOUT) {
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    ) {
-                        Icon(
-                            modifier = Modifier.graphicsLayer {
-                                rotationZ = 90f
-                            },
-                            imageVector = Icons.Rounded.BarChart,
-                            contentDescription = "Logout",
-                        )
-                    }
-                    IconButton(
-                        onClick = {
-                            appViewModel.logout()
-                            navController.navigate(AppRoute.LOGIN) {
-                                popUpTo(AppRoute.HOME) {
-                                    inclusive = true
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.Logout,
-                            contentDescription = "Logout",
-                        )
+                },
+                onLogout = { // 点击 Logout 图标时登出并返回登录页
+                    appViewModel.logout()
+                    navController.navigate(AppRoute.LOGIN) {
+                        popUpTo(AppRoute.HOME) { inclusive = true; saveState = true }
+                        launchSingleTop = true; restoreState = true
                     }
                 }
             )
         },
     ) { paddingValues ->
-        VerticalPager(
-            state = pagerState,
-            userScrollEnabled = false,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) { page ->
-            when (page) {
-                0 -> CoursePage(appViewModel, iaShowClassInfo, classInfo)
-                1 -> GradesPage(appViewModel)
-            }
-        }
-
+        MainPager(
+            pagerState,
+            { CoursePage(appViewModel, iaShowClassInfo, classInfo) },
+            { GradesPage(appViewModel) },
+            modifier = Modifier.padding(paddingValues)
+        )
         DatePickerDialog(
             isOpenDialog,
             startDate,
@@ -365,7 +220,6 @@ fun ContentUiPage(
                 },
                 sheetState = classInfoModalBottomSheet,
                 contentWindowInsets = { WindowInsets(top = 0.dp) },
-//                containerColor = MaterialTheme.colorScheme.primaryContainer,
                 dragHandle = {
                     Row(
                         modifier = Modifier
@@ -390,7 +244,6 @@ fun ContentUiPage(
             ) {
                 Column(
                     modifier = Modifier
-//                        .fillMaxHeight()
                         .padding(vertical = 8.dp)
                         .padding(bottom = 56.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -423,6 +276,7 @@ fun ContentUiPage(
                 }
             }
         }
+
         if (showBottomSheet.value) {
             ModalBottomSheet(
                 onDismissRequest = {
@@ -434,105 +288,55 @@ fun ContentUiPage(
                     startDate.value = "选择开学日期"
                 },
                 sheetState = modalBottomSheetState,
-//                dragHandle = {
-//                    DragHandle(
-//                        modifier = Modifier.padding(top = height),
-//                    )
-//                },
                 contentWindowInsets = { WindowInsets(top = 0.dp) }
             ) {
-                Column(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .padding(bottom = 56.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    SelectGrades(
-                        selected1,
-                        selected2,
-                        onYearSelected = { year -> academicYear = year },
-                        onSemesterSelected = { term -> semester = term }
-                    )
-                    InputChip(
-                        modifier = Modifier
-                            .fillMaxWidth(0.9f)
-                            .padding(top = 8.dp)
-                            .defaultMinSize(
-                                minHeight = 36.dp
-                            ),
-                        shape = RoundedCornerShape(20.dp),
-                        selected = isSelectedDate.value,
-                        onClick = {
-                            isOpenDialog.value = true
-                        },
-                        label = {
-                            Text(
-                                startDate.value,
-                                modifier = Modifier.fillMaxWidth(),
-                                fontSize = 18.sp,
-                                textAlign = TextAlign.Center
+                CourseFilterSheet(
+                    academicYear = academicYear,
+                    semester = semester,
+                    startDate = startDate.value,
+                    scheduleOptions = scheduleState,
+                    selectedSchedule = scheduleSelected,
+                    // 当学年被选中时，除了回调外也要标记 selected1=true
+                    onYearChange = { year ->
+                        academicYear = year
+                        selected1.value = true
+                    },
+                    // 当学期被选中时，除了回调外也要标记 selected2=true
+                    onSemesterChange = { term ->
+                        semester = term
+                        selected2.value = true
+                    },
+                    // 打开日期选择对话框
+                    onDateClick = { isOpenDialog.value = true },
+                    // 切换作息表选项
+                    onScheduleSelect = { idx -> scheduleSelected = idx },
+                    // 点击“查询课表”按钮时，执行原来的逻辑
+                    onQuery = {
+                        val start = startDate.value.trim()
+                        when {
+                            start.isBlank() || start == "选择开学日期" -> showToast(
+                                context,
+                                "请选择开学日期"
                             )
-                        }
-                    )
-                    SingleChoiceSegmentedButtonRow(
-                        modifier = Modifier
-                            .fillMaxWidth(0.9f)
-                            .padding(top = 8.dp),
-                    ) {
-                        scheduleState.forEachIndexed { index, schedule ->
-                            SegmentedButton(
-                                selected = scheduleSelected == index,
-                                onClick = {
-                                    scheduleSelected = index
-                                },
-                                shape = SegmentedButtonDefaults.itemShape(
-                                    index,
-                                    scheduleState.size
-                                )
-                            ) {
-                                Text(text = schedule)
-                            }
 
-                        }
-                    }
-                    Spacer(Modifier.height(23.dp))
-                    TooltipBox(
-                        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                        state = rememberTooltipState(),
-                        tooltip = {
-                            PlainTooltip {
-                                Text(text = "确认查询")
-                            }
-                        }
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                when {
-                                    selected1.value && selected2.value -> scope.launch {
-                                        val courseResult = async {
-                                            appViewModel.getCourseData(
-                                                scheduleSelected,
-                                                academicYear,
-                                                semester,
-                                                startDate.value
-                                            )
-                                        }
-                                        courseResult.await()
-                                    }
-
-                                    selected1.value -> showToast(context, "请选择学期")
-                                    selected2.value -> showToast(context, "请选择学年")
-                                    else -> showToast(context, "请选择学年和学期")
+                            selected1.value && selected2.value -> scope.launch {
+                                val courseResult = async {
+                                    appViewModel.getCourseData(
+                                        scheduleSelected,
+                                        academicYear,
+                                        semester,
+                                        startDate.value
+                                    )
                                 }
+                                courseResult.await()
                             }
-                        ) {
-                            Text(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                text = "查询课表"
-                            )
+
+                            selected1.value -> showToast(context, "请选择学期")
+                            selected2.value -> showToast(context, "请选择学年")
+                            else -> showToast(context, "请选择学年和学期")
                         }
                     }
-                }
+                )
             }
         }
     }
@@ -558,3 +362,178 @@ fun DatePickerDialog(
         }
     }
 }
+
+@Composable
+fun MainPager(
+    pagerState: PagerState,
+    coursePage: @Composable () -> Unit,
+    gradesPage: @Composable () -> Unit,
+    modifier: Modifier
+) {
+    VerticalPager(
+        state = pagerState,
+        userScrollEnabled = false,
+        modifier = modifier.fillMaxSize()
+    ) { page ->
+        when (page) {
+            0 -> coursePage()
+            1 -> gradesPage()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppTopBar(
+    currentPage: Int,
+    today: String,
+    userName: String,
+    isDarkTheme: Boolean,
+    isSwitchActive: Boolean,
+    onSwitchToggle: (Float, Float) -> Unit,
+    onOpenSheet: () -> Unit,
+    onPageToggle: () -> Unit,
+    onNavigateAbout: () -> Unit,
+    onLogout: () -> Unit
+) {
+    TopAppBar(
+        title = {
+            if (currentPage == 0) {
+                BasicText(
+                    text = today,
+                    style = TextStyle(
+                        fontWeight = FontWeight.Bold,
+                        color = LocalContentColor.current
+                    ),
+                    autoSize = TextAutoSize.StepBased(
+                        minFontSize = 10.sp,
+                        maxFontSize = 24.sp,
+                        stepSize = 1.sp
+                    ),
+                    maxLines = 1
+                )
+            } else Text(userName, fontWeight = FontWeight.Bold)
+        },
+        navigationIcon = {
+            DarkSwitchButton(
+                isDark = isDarkTheme,
+                isActive = isSwitchActive,
+                onActivate = onSwitchToggle
+            )
+        },
+        actions = {
+            if (currentPage == 0) IconButton(onClick = onOpenSheet) {
+                Icon(Icons.Rounded.DataSaverOn, contentDescription = "查询课表")
+            }
+            IconButton(onClick = onPageToggle) {
+                Icon(
+                    imageVector = if (currentPage == 0) Icons.Rounded.ToggleOff else Icons.Rounded.ToggleOn,
+                    contentDescription = "切换页面"
+                )
+            }
+            IconButton(onClick = onNavigateAbout) {
+                Icon(Icons.Rounded.BarChart, contentDescription = "关于")
+            }
+            IconButton(onClick = onLogout) {
+                Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = "登出")
+            }
+        }
+    )
+}
+
+@Composable
+fun DarkSwitchButton(
+    isDark: Boolean,
+    isActive: Boolean,
+    onActivate: (x: Float, y: Float) -> Unit
+) {
+    var isPressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isPressed) 0.8f else 1f, tween(150))
+    var posX by remember { mutableFloatStateOf(0f) }
+    var posY by remember { mutableFloatStateOf(0f) }
+    val haptic = LocalHapticFeedback.current
+//    val context = LocalContext.current
+
+    IconButton(
+        enabled = !isActive,
+        modifier = Modifier
+            .onGloballyPositioned { pos ->
+                val bounds = pos.boundsInRoot()
+                posX = bounds.center.x; posY = bounds.center.y
+            }
+            .graphicsLayer {
+                scaleX = scale; scaleY = scale; this.transformOrigin = TransformOrigin.Center
+            }
+            .pointerInteropFilter { e ->
+                when (e.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        isPressed =
+                            true; haptic.performHapticFeedback(HapticFeedbackType.LongPress); true
+                    }
+
+                    MotionEvent.ACTION_UP -> {
+                        isPressed = false; onActivate(posX, posY); true
+                    }
+
+                    MotionEvent.ACTION_CANCEL -> {
+                        isPressed = false; true
+                    }
+
+                    else -> false
+                }
+            },
+        onClick = { /* no-op */ }
+    ) {
+        Icon(if (isDark) Icons.Rounded.DarkMode else Icons.Rounded.LightMode, null)
+    }
+}
+
+@Composable
+fun CourseFilterSheet(
+    academicYear: String,
+    semester: String,
+    startDate: String,
+    scheduleOptions: List<String>,
+    selectedSchedule: Int,
+    onYearChange: (String) -> Unit,
+    onSemesterChange: (String) -> Unit,
+    onDateClick: () -> Unit,
+    onScheduleSelect: (Int) -> Unit,
+    onQuery: () -> Unit
+) {
+    Column(Modifier.padding(16.dp)) {
+        SelectGrades(
+            academicYear,
+            semester,
+            onYearSelected = { year -> onYearChange(year) },
+            onSemesterSelected = { term -> onSemesterChange(term) }
+        )
+        Spacer(Modifier.height(8.dp))
+        InputChip(
+            modifier = Modifier.fillMaxWidth(),
+            selected = startDate.isNotBlank(),
+            onClick = onDateClick,
+            label = { Text(startDate.ifBlank { "选择开学日期" }) }
+        )
+        Spacer(Modifier.height(8.dp))
+        SingleChoiceSegmentedButtonRow(
+            Modifier.fillMaxWidth()
+        ) {
+            scheduleOptions.forEachIndexed { idx, label ->
+                SegmentedButton(
+                    selected = selectedSchedule == idx,
+                    onClick = { onScheduleSelect(idx) },
+                    shape = SegmentedButtonDefaults.itemShape(
+                        idx,
+                        scheduleOptions.size
+                    )
+                ) { Text(label) }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        OutlinedButton(onClick = onQuery, Modifier.fillMaxWidth()) {
+            Text("查询课表")
+        }
+    }
+}
+

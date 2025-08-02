@@ -13,13 +13,15 @@ import androidx.compose.material3.InputChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
 @Composable
-fun ChipList(
+fun ChipList1(
     selected: MutableState<Boolean>,
     text: String,
     menuItems: List<String>,
@@ -57,6 +59,48 @@ fun ChipList(
                         selected.value = true
                         label.value = it
                         toSelect.value = !toSelect.value
+                        onItemSelected(it)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ChipList(
+    selected: Boolean,
+    label: String,
+    menuItems: List<String>,
+    onItemSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.wrapContentSize(Alignment.Center)) {
+        InputChip(
+            selected = selected,
+            onClick = { expanded = !expanded },
+            label = { Text(label) },
+            leadingIcon = {
+                if (selected) {
+                    Icon(Icons.Rounded.Check, contentDescription = label)
+                } else {
+                    Icon(Icons.Rounded.AccessTime, contentDescription = label)
+                }
+            },
+            trailingIcon = {
+                Icon(Icons.Rounded.ArrowDropDown, contentDescription = null)
+            }
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            menuItems.forEach {
+                DropdownMenuItem(
+                    text = { Text(it) },
+                    onClick = {
+                        expanded = false
                         onItemSelected(it)
                     }
                 )

@@ -37,10 +37,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,14 +55,15 @@ import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.ch4019.jdaassist.ui.components.ChipList
+import com.ch4019.jdaassist.ui.components.ChipList1
 import com.ch4019.jdaassist.viewmodel.AppViewModel
 import com.ch4019.jdaassist.viewmodel.GradesInfo
 import com.ch4019.jdaassist.viewmodel.GradesList
-import kotlinx.coroutines.delay
 import java.time.Year
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,45 +71,42 @@ import java.time.Year
 fun GradesPage(
     appViewModel: AppViewModel
 ) {
-    var academicYear by remember{ mutableStateOf("2023") }
-    var semester by remember{ mutableStateOf("1") }
-    var gradesList by remember { mutableStateOf(GradesList()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var gradesInfo by remember { mutableStateOf(GradesInfo()) }
-    val selected1 = remember { mutableStateOf(false) }
-    val selected2 = remember { mutableStateOf(false) }
+    var academicYear by remember { mutableStateOf("") }
+    var semester by remember { mutableStateOf("") }
     val isShowClassInfo = remember { mutableStateOf(false) }
-    val courseId = remember { mutableStateOf("") }
-    val isShowDialog = remember { mutableStateOf(false) }
-    var isGetGrades by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val xOffsetPx = with(LocalDensity.current) { 32.dp.toPx().toInt() }
 
-    LaunchedEffect(isShowClassInfo.value) {
-        if (isShowClassInfo.value) {
-            val result = appViewModel.getGradesInfo(academicYear, semester, courseId.value)
-            if (result.isSuccess) {
-                gradesInfo = result.getOrNull()!!
-                isShowDialog.value = true // 只有成功获取信息后才显示弹窗
-            } else {
-                // Handle error here, e.g., show a Toast or Snackbar
-            }
-            isShowClassInfo.value = false // 重置isShowClassInfo状态
-        }
-    }
-
-    LaunchedEffect(isGetGrades) {
-        if (isGetGrades) {
+    // 详情对话框控制
+    var showDialog by remember { mutableStateOf(false) }
+    var selectedCourseId by remember { mutableStateOf<String?>(null) }
+    // 刷新触发器与加载状态
+    var refreshTrigger by remember { mutableIntStateOf(0) }
+    var refreshTriggerGrade by remember { mutableIntStateOf(0) }
+    var isLoading by remember { mutableStateOf(false) }
+    // 根据学年学期获取成绩列表
+    val gradesList: GradesList by produceState(
+        initialValue = GradesList(),
+        refreshTrigger
+    ) {
+        if (academicYear.isNotBlank() && semester.isNotBlank()) {
             isLoading = true
             val result = appViewModel.getGrades(academicYear, semester)
-            delay(500)
-            if (result.isSuccess) {
-                gradesList = result.getOrNull()!!
-                isLoading = false
-            } else {
-                isLoading = false
-            }
-            isGetGrades = false
+            value = result.getOrNull() ?: GradesList()
+            isLoading = false
+        } else {
+            value = GradesList()
+        }
+    }
+    // 根据选中课程获取详情
+    val gradesInfo: GradesInfo by produceState(
+        initialValue = GradesInfo(),
+        refreshTriggerGrade
+    ) {
+        if (showDialog && selectedCourseId != null) {
+            value =
+                appViewModel.getGradesInfo(academicYear, semester, selectedCourseId!!).getOrNull()
+                    ?: GradesInfo()
         }
     }
 
@@ -119,12 +118,14 @@ fun GradesPage(
             modifier = Modifier
                 .fillMaxSize()
         ) {
+            // 学年学期选择
             SelectGrades(
-                selected1,
-                selected2,
-                onYearSelected = { year -> academicYear = year },
-                onSemesterSelected = { term -> semester = term }
+                academicYear,
+                semester,
+                onYearSelected = { academicYear = it },
+                onSemesterSelected = { semester = it }
             )
+            Spacer(modifier = Modifier.height(24.dp))
             Column(
                 modifier = Modifier
                     .verticalScroll(scrollState)
@@ -134,9 +135,25 @@ fun GradesPage(
                         gradesList,
                         isShowClassInfo,
                         onIdSelected = {
-                            courseId.value= it
+                            selectedCourseId = it
+                            refreshTriggerGrade++
+                            showDialog = true
                         }
                     )
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp)
+                            .height(56.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "暂无成绩",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
@@ -157,8 +174,8 @@ fun GradesPage(
                 targetOffsetX = { xOffsetPx },
             ),
         ) {
-            FloatButton(selected1.value, selected2.value) {
-                isGetGrades = true
+            FloatButton(academicYear.isNotBlank() && semester.isNotBlank()) {
+                refreshTrigger++
             }
         }
         // 加载指示器
@@ -195,10 +212,10 @@ fun GradesPage(
                 }
             }
         }
-        if(isShowDialog.value) {
+        if (showDialog) {
             BasicAlertDialog(
                 onDismissRequest = {
-                    isShowDialog.value = false
+                    showDialog = false
                 },
             ) {
                 Card(
@@ -211,7 +228,7 @@ fun GradesPage(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Spacer(Modifier.weight(1f))
-                        gradesInfo.items.forEachIndexed { index,item->
+                        gradesInfo.items.forEachIndexed { index, item ->
                             Column {
                                 Text(
                                     item.courseGradeInfo,
@@ -238,7 +255,7 @@ fun GradesPage(
                     Spacer(Modifier.height(8.dp))
                     FilledTonalButton(
                         onClick = {
-                            isShowDialog.value = false
+                            showDialog = false
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -253,8 +270,65 @@ fun GradesPage(
 }
 
 
+private object SelectGradesConstants {
+    const val YearRange = 4  // 向前推 4 年
+    const val SemesterCount = 2
+    const val YearFormat = "%d-%d"
+    val SemesterOptions = List(SemesterCount) { "${it + 1}" }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SelectGrades(
+    academicYear: String,
+    semester: String,
+    onYearSelected: (String) -> Unit,
+    onSemesterSelected: (String) -> Unit
+) {
+    // 最近几年
+    val recentYears = remember {
+        val current = Year.now().value
+        List(SelectGradesConstants.YearRange + 1) { offset ->
+            SelectGradesConstants.YearFormat.format(
+                current - SelectGradesConstants.YearRange + offset,
+                current - SelectGradesConstants.YearRange + offset + 1
+            )
+        }
+    }
+
+    // 当前选择状态和显示文字
+    val selected1 = remember { mutableStateOf(academicYear.isNotBlank()) }
+    val selected2 = remember { mutableStateOf(semester.isNotBlank()) }
+    val label1 = remember { mutableStateOf(academicYear.ifBlank { "选择学年" }) }
+    val label2 = remember { mutableStateOf(semester.ifBlank { "选择学期" }) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Spacer(modifier = Modifier.weight(0.25f))
+
+        ChipList(selected1.value, label1.value, recentYears) {
+            label1.value = it
+            selected1.value = true
+            onYearSelected(it.split("-")[0])
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        ChipList(selected2.value, label2.value, SelectGradesConstants.SemesterOptions) {
+            label2.value = it
+            selected2.value = true
+            onSemesterSelected(it)
+        }
+
+        Spacer(modifier = Modifier.weight(0.25f))
+    }
+}
+
+@Composable
+fun SelectGrades1(
     selected1: MutableState<Boolean>,
     selected2: MutableState<Boolean>,
     onYearSelected: (String) -> Unit,
@@ -276,11 +350,11 @@ fun SelectGrades(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Spacer(modifier = Modifier.weight(1f))
-        ChipList(selected1, text1.value, recentYears) {
+        ChipList1(selected1, text1.value, recentYears) {
             onYearSelected(it.split("-")[0])
         }
         Spacer(modifier = Modifier.weight(1f))
-        ChipList(selected2, text2.value, menuItems2){
+        ChipList1(selected2, text2.value, menuItems2) {
             onSemesterSelected(it)
         }
         Spacer(modifier = Modifier.weight(1f))
@@ -397,8 +471,7 @@ fun ShowDemo(
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun FloatButton(
-    selected1: Boolean,
-    selected2: Boolean,
+    enabled: Boolean,
     content: () -> Unit
 ) {
     val context = LocalContext.current
@@ -428,16 +501,11 @@ fun FloatButton(
 
                         MotionEvent.ACTION_UP -> {
                             isPressed = false // 松开时恢复
-                            if (selected1 && selected2) {
-                                content()
-                            } else if (selected1) {
-                                Toast.makeText(context, "请选择学期", Toast.LENGTH_SHORT).show()
-                            } else if (selected2) {
-                                Toast.makeText(context, "请选择学年", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, "请选择学年和学期", Toast.LENGTH_SHORT)
-                                    .show()
-                            }
+                            if (enabled) content() else Toast.makeText(
+                                context,
+                                "请先选择学年和学期",
+                                Toast.LENGTH_SHORT
+                            ).show()
                             true
                         }
 
@@ -454,19 +522,9 @@ fun FloatButton(
                     this.scaleY = scale
                     this.transformOrigin = TransformOrigin.Center
                 },
-            onClick = {
-//                if (selected1 && selected2) {
-//                    content()
-//                } else if (selected1) {
-//                    Toast.makeText(context, "请选择学期", Toast.LENGTH_SHORT).show()
-//                } else if (selected2) {
-//                    Toast.makeText(context, "请选择学年", Toast.LENGTH_SHORT).show()
-//                } else {
-//                    Toast.makeText(context, "请选择学年和学期", Toast.LENGTH_SHORT).show()
-//                }
-            }
+            onClick = { }
         ) {
-            Icon(imageVector = Icons.Default.Check, contentDescription = null)
+            Icon(imageVector = Icons.Default.Check, contentDescription = "确认")
         }
     }
 }

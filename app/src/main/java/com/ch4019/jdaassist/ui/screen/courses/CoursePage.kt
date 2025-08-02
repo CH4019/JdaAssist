@@ -58,7 +58,6 @@ import java.util.Locale
 
 @Composable
 fun CoursePage(
-//    coursesData : CourseJsonList,
     appViewModel: AppViewModel,
     iaShowClassInfo: MutableState<Boolean>,
     classInfo: MutableState<ClassInfo>

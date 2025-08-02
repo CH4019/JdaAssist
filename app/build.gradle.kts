@@ -1,9 +1,11 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.compose.compiler)
     id("com.google.dagger.hilt.android")
-    kotlin("plugin.serialization") version "2.2.0-Beta1"
+    kotlin("plugin.serialization") version "2.2.0-Beta2"
     id("com.google.devtools.ksp")
 }
 
@@ -15,34 +17,21 @@ android {
         applicationId = "com.ch4019.jdaassist"
         minSdk = 29
         targetSdk = 36
-        versionCode = 23
-        versionName = "1.1.8"
+        versionCode = 31
+        versionName = "1.2.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables {
-            useSupportLibrary = true
-        }
+        vectorDrawables.useSupportLibrary = true
+//        vectorDrawables {
+//            useSupportLibrary = true
+//        }
         ndk {
             //noinspection ChromeOsAbiSupport
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")    //只保留 arm 架构
         }
     }
-    packaging {
-        resources {
-            excludes += "META-INF/*.readme"
-            excludes += "/META-INF/README.md"
-            // ... 其他要排除的资源文件
-        }
-        // ... 其他排除规则
-    }
-    signingConfigs {
-        create("releaseConfig") {
-            enableV3Signing = true
-        }
-    }
 
     buildTypes {
-        val releaseConfig = signingConfigs.getByName("releaseConfig")
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -50,27 +39,44 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = releaseConfig
+            signingConfig = signingConfigs.create("releaseConfig") {
+                enableV3Signing = true
+            }
         }
     }
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_19
-        targetCompatibility = JavaVersion.VERSION_19
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
-    kotlinOptions {
-        jvmTarget = "19"
+
+    kotlin {
+        jvmToolchain(21)
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_21)
+        }
     }
+
+//    kotlinOptions {
+//        jvmTarget = "21"
+//    }
     buildFeatures {
         compose = true
     }
 //    composeOptions {
 //        kotlinCompilerExtensionVersion = "1.5.15"
 //    }
-    buildToolsVersion = "36.0.0"
+//    buildToolsVersion = "36.0.0"
     packaging {
         resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += listOf(
+                "META-INF/*.readme",
+                "/META-INF/README.md",
+                "/META-INF/{AL2.0,LGPL2.1}"
+            )
+            // ... 其他要排除的资源文件
         }
+        // ... 其他排除规则
     }
 }
 
