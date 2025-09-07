@@ -35,7 +35,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -80,6 +79,7 @@ fun GradesPage(
     // 详情对话框控制
     var showDialog by remember { mutableStateOf(false) }
     var selectedCourseId by remember { mutableStateOf<String?>(null) }
+    var courseName by remember { mutableStateOf("") }
     // 刷新触发器与加载状态
     var refreshTrigger by remember { mutableIntStateOf(0) }
     var refreshTriggerGrade by remember { mutableIntStateOf(0) }
@@ -105,7 +105,8 @@ fun GradesPage(
     ) {
         if (showDialog && selectedCourseId != null) {
             value =
-                appViewModel.getGradesInfo(academicYear, semester, selectedCourseId!!).getOrNull()
+                appViewModel.getGradesInfo(academicYear, semester, selectedCourseId!!, courseName)
+                    .getOrNull()
                     ?: GradesInfo()
         }
     }
@@ -134,8 +135,9 @@ fun GradesPage(
                     ShowDemo(
                         gradesList,
                         isShowClassInfo,
-                        onIdSelected = {
-                            selectedCourseId = it
+                        onIdSelected = { courseIdBack, courseNameBack ->
+                            selectedCourseId = courseIdBack
+                            courseName = courseNameBack
                             refreshTriggerGrade++
                             showDialog = true
                         }
@@ -228,28 +230,66 @@ fun GradesPage(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Spacer(Modifier.weight(1f))
-                        gradesInfo.items.forEachIndexed { index, item ->
-                            Column {
+                        Column(
+                            modifier = Modifier
+                                .padding(vertical = 8.dp)
+                                .padding(bottom = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                courseName,
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                            Row(
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceAround
+                            ) {
+                                Text("成绩分项比例:")
                                 Text(
-                                    item.courseGradeInfo,
+                                    gradesInfo.items.courseGradeInfo,
                                     style = MaterialTheme.typography.titleMedium,
                                 )
-                                Spacer(Modifier.height(8.dp))
-                                Text(item.courseScore)
                             }
-                            if(
-                                index != gradesInfo.items.size-1
+                            HorizontalDivider(
+                                thickness = 2.dp,
+                                modifier = Modifier
+                                    .height(2.dp)
+                            )
+                            Row(
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceAround
                             ) {
-                                Spacer(Modifier.weight(1f))
-                                VerticalDivider(
-                                    thickness = 2.dp,
-                                    modifier = Modifier
-                                        .width(2.dp)
-                                        .height(36.dp)
+                                Text("成绩:")
+                                Text(
+                                    gradesInfo.items.courseScore,
+                                    style = MaterialTheme.typography.titleMedium,
                                 )
-                                Spacer(Modifier.weight(1f))
                             }
+
                         }
+//                        gradesInfo.items.forEachIndexed { index, item ->
+//                            Column {
+//                                Text(
+//                                    item.courseGradeInfo,
+//                                    style = MaterialTheme.typography.titleMedium,
+//                                )
+//                                Spacer(Modifier.height(8.dp))
+//                                Text(item.courseScore)
+//                            }
+//                            if(
+//                                index != gradesInfo.items.size-1
+//                            ) {
+//                                Spacer(Modifier.weight(1f))
+//                                VerticalDivider(
+//                                    thickness = 2.dp,
+//                                    modifier = Modifier
+//                                        .width(2.dp)
+//                                        .height(36.dp)
+//                                )
+//                                Spacer(Modifier.weight(1f))
+//                            }
+//                        }
                         Spacer(Modifier.weight(1f))
                     }
                     Spacer(Modifier.height(8.dp))
@@ -365,13 +405,13 @@ fun SelectGrades1(
 fun ShowDemo(
     gradesList: GradesList,
     isShowClassInfo:  MutableState<Boolean>,
-    onIdSelected: (String) -> Unit,
+    onIdSelected: (courseId: String, courseName: String) -> Unit,
 ) {
     gradesList.items.forEachIndexed {index,it->
         Surface(
             onClick = {
                 isShowClassInfo.value = true
-                onIdSelected(it.courseId)
+                onIdSelected(it.courseId, it.courseName)
             },
         ) {
             Column {

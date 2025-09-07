@@ -45,7 +45,7 @@ data class GradesList(
 
 @Serializable
 data class GradesInfo(
-    val items: List<GradeInfo> = listOf(),
+    val items: GradeInfo = GradeInfo(),
 ){
     @Serializable
     data class GradeInfo(

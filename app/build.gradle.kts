@@ -17,8 +17,8 @@ android {
         applicationId = "com.ch4019.jdaassist"
         minSdk = 29
         targetSdk = 36
-        versionCode = 31
-        versionName = "1.2.6"
+        versionCode = 33
+        versionName = "1.2.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

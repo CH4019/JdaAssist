@@ -35,6 +35,7 @@ import okhttp3.Request
 import org.jsoup.Connection
 import org.jsoup.Jsoup
 import java.io.IOException
+import java.net.URLEncoder
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -216,7 +217,8 @@ class AppViewModel @Inject constructor(
     suspend fun getGradesInfo(
         year: String,
         semester: String,
-        courseId: String
+        courseId: String,
+        courseName: String
     ): Result<GradesInfo> = withContext(Dispatchers.IO) {
         val term = when (semester) {
             "1" -> "3"
@@ -226,29 +228,49 @@ class AppViewModel @Inject constructor(
         val maxRetries = 3
         repeat(maxRetries) { currentRetry -> // 使用 repeat 函数简化循环
             runCatching {
+                val url =
+                    "${loginState.value.url}/cjcx/cjcx_cxCjxqGjh.html?time=${System.currentTimeMillis()}&gnmkdm=N305005"
                 val connection =
-                    Jsoup.connect("${loginState.value.url}/cjcx/cjcx_cxXsXmcjList.html?gnmkdm=N305007&su=${loginState.value.userName}")
+                    Jsoup.connect(url)
+//                        "${loginState.value.url}/cjcx/cjcx_cxXsXmcjList.html?gnmkdm=N305007&su=${loginState.value.userName}"
+                        .method(Connection.Method.POST)
                         .header(
                             "User-Agent",
                             "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36 Edg/115.0.1901.203"
+                        )
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .header(
+                            "Referer",
+                            "${loginState.value.url}/cjcx/cjcx_cxDgXscj.html?gnmkdm=N305005&layout=default&su=${loginState.value.userName}"
                         )
                         .cookies(loginState.value.cookies)
                         .ignoreContentType(true)
                         .data("xnm", year)
                         .data("xqm", term)
                         .data("jxb_id", courseId)
-                        .data("_search", "false")
-                        .data("nd", (getTime() * 1000).toString())
-                        .data("queryModel.showCount", "100")
-                        .data("queryModel.currentPage", "1")
-                        .data("queryModel.sortName", "")
-                        .data("queryModel.sortOrder", "asc")
-                        .data("time", "0")
+                        .data("kcmc", URLEncoder.encode(courseName, "UTF-8"))
+//                        .data("_search", "false")
+//                        .data("nd", (getTime() * 1000).toString())
+//                        .data("queryModel.showCount", "100")
+//                        .data("queryModel.currentPage", "1")
+//                        .data("queryModel.sortName", "")
+//                        .data("queryModel.sortOrder", "asc")
+//                        .data("time", "0")
                 val response = connection.execute()
                 if (response.statusCode() == 200) {
-                    val responseBody = response.body()
-                    val json = Json { ignoreUnknownKeys = true }
-                    json.decodeFromString<GradesInfo>(responseBody)
+                    val doc = Jsoup.parse(response.body())
+                    val row = doc.select("table#subtab tbody tr").firstOrNull()
+                    val grade = row?.let {
+                        val tds = it.select("td")
+                        GradesInfo.GradeInfo(
+                            courseGradeInfo = tds.getOrNull(1)?.text()?.trim() ?: "",
+                            courseScore = tds.getOrNull(2)?.text()?.trim() ?: ""
+                        )
+                    } ?: GradesInfo.GradeInfo() // 如果没有行就用默认值
+                    GradesInfo(items = grade)
+//                    val responseBody = response.body()
+//                    val json = Json { ignoreUnknownKeys = true }
+//                    json.decodeFromString<GradesInfo>(responseBody)
                 } else {
                     throw Exception("HTTP request failed with status code: ${response.statusCode()}") // 更详细的错误信息
                 }
